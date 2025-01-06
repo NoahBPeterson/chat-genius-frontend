@@ -1,18 +1,23 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Channels from './routes/Channels';
-import DMs from './routes/DMs';
-import Threads from './routes/Threads';
+import MainPage from './components/MainPage';
+import Login from './routes/Login';
+import Register from './routes/Register';
 
 const App: React.FC = () => {
     return (
+        <>
+        <div className="bg-blue-500 text-white p-4">
+                <p className="text-2xl font-bold">Hello, Tailwind CSS!</p>
+        </div>
         <BrowserRouter>
             <Routes>
-                <Route path="/channels/:id" element={<Channels />} />
-                <Route path="/dm/:id" element={<DMs />} />
-                <Route path="/threads/:id" element={<Threads />} />
+                <Route path="/" element={<MainPage />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
             </Routes>
         </BrowserRouter>
+        </>
     );
 };
 
