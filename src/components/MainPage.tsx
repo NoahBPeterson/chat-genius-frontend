@@ -59,33 +59,48 @@ const MainPage: React.FC = () => {
     };
 
     return (
-        <div className="flex flex-grow h-screen flex flex-col">
-            <div className="w-1/5 bg-gray-800 text-white flex flex-col justify-between p-4">
-                {userRole === 'admin' && (
-                    <div>
-                        <button onClick={() => setIsInputVisible(!isInputVisible)}>
-                            {isInputVisible ? '-' : '+'}
+    <div className="flex h-screen w-screen">
+        {/* Sidebar */}
+        <div className="w-1/5 min-w-[250px] bg-gray-800 text-white flex flex-col justify-between flex-shrink-0">
+            {/* Admin Controls */}
+            {userRole === 'admin' && (
+                    <div className="p-4 border-b border-gray-700">
+                        <button
+                            onClick={() => setIsInputVisible(!isInputVisible)}
+                            className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded w-full"
+                        >
+                            {isInputVisible ? 'Cancel' : 'New Channel'}
                         </button>
                         {isInputVisible && (
-                            <div>
+                            <div className="mt-4">
                                 <input
                                     type="text"
                                     value={newChannelName}
                                     onChange={(e) => setNewChannelName(e.target.value)}
                                     onKeyUp={handleKeyPress}
                                     placeholder="New Channel Name"
+                                    className="w-full p-2 border rounded text-black"
                                 />
                             </div>
                         )}
                     </div>
                 )}
-                <Sidebar channels={channels} setSelectedChannelId={setSelectedChannelId} />
-                <div className="flex-1 bg-gray-100 flex flex-col">
+
+                {/* Sidebar Content */}
+                <Sidebar
+                    channels={channels}
+                    setSelectedChannelId={setSelectedChannelId}
+                />
+
+                {/* Footer (Settings/Profile Icons) */}
+                <div className="flex items-center justify-between p-4 border-t border-gray-700">
                     <button className="hover:text-gray-400">⚙️</button>
                     <button className="hover:text-gray-400">👤</button>
                 </div>
             </div>
-            <div className="messages-container bg-purple-700">
+
+                {/* Messages Area */}
+                <div className="flex-1">
                 {selectedChannelId && <Messages channelId={selectedChannelId} />}
             </div>
         </div>

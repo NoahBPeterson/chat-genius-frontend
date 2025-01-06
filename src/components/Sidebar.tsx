@@ -2,7 +2,7 @@ import React from 'react';
 
 const Sidebar: React.FC<{ channels: any[]; setSelectedChannelId: (id: string) => void }> = ({ channels, setSelectedChannelId }) => {
     return (
-        <div className="sidebar">
+        <div className="sidebar flex-1 overflow-y-auto p-4 flex-shrink-0">
             <h2>Channels</h2>
             <ul>
                 {channels.map(channel => (

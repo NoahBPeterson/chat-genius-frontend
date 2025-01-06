@@ -7,16 +7,13 @@ import Register from './routes/Register';
 const App: React.FC = () => {
     return (
         <>
-        <div className="bg-blue-500 text-white p-4">
-                <p className="text-2xl font-bold">Hello, Tailwind CSS!</p>
-        </div>
-        <BrowserRouter>
-            <Routes>
-                <Route path="/" element={<MainPage />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-            </Routes>
-        </BrowserRouter>
+            <BrowserRouter>
+                <Routes>
+                    <Route path="/" element={<MainPage />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/register" element={<Register />} />
+                </Routes>
+            </BrowserRouter>
         </>
     );
 };

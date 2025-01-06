@@ -43,41 +43,42 @@ const Messages: React.FC<{ channelId: string }> = ({ channelId }) => {
     messages.map((message, index) => {
         console.log(message, index);
     })
+    
     return (
-        <div className="flex-1 flex flex-col">
-                {/* Messages */}
-                <div className="flex-grow overflow-y-auto p-4 bg-purple-1000">
-                    <h2 className="text-lg font-semibold mb-2">Messages</h2>
-                    <ul className="space-y-2">
-                        {messages.map((message) => (
-                            <li
-                                key={message.id}
-                                className="p-2 bg-purple-900 rounded text-white"
-                            >
-                                {message.content}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-
-                {/* Message Input */}
-                <div className="p-4 border-t border-purple-600 bg-purple-800">
-                    <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyUp={(e) => {
-                            if (e.key === 'Enter') {
-                                handleSendMessage(newMessage);
-                                setNewMessage('');
-                            }
-                        }}
-                        placeholder="Type your message..."
-                        className="w-full p-2 border rounded"
-                    />
-                </div>
+        <div className="flex flex-col h-screen w-full">
+            {/* Messages Display */}
+            <div className="flex-1 overflow-y-auto p-4 bg-purple-800">
+                <h2 className="text-lg font-semibold mb-2 text-white">Messages</h2>
+                <ul className="space-y-2">
+                    {messages.map((message) => (
+                        <li
+                            key={message.id}
+                            className="p-2 bg-purple-700 rounded text-white"
+                        >
+                            {message.content}
+                        </li>
+                    ))}
+                </ul>
+            </div>
+    
+            {/* Message Input Box */}
+            <div className="p-4 border-t border-purple-700 bg-purple-900">
+                <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyUp={(e) => {
+                        if (e.key === 'Enter') {
+                            handleSendMessage(newMessage);
+                            setNewMessage('');
+                        }
+                    }}
+                    placeholder="Type your message..."
+                    className="w-full p-2 border rounded bg-purple-700 text-white placeholder-gray-400"
+                />
+            </div>
         </div>
-    );
-};
+    );    
+};  
 
-export default Messages; 
+export default Messages;
