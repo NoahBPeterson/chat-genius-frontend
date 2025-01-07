@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Button from '@mui/material/Button';
 import API_Client from '../API_Client';
 
@@ -15,8 +15,7 @@ const Register: React.FC = () => {
             console.log(email, password, displayname);
             const response = await API_Client.post('/api/register', { email, password, displayname });
             localStorage.setItem('token', response.data.token);
-            console.log(response.data, response.data.token);
-            navigate('/'); // Redirect to a default channel
+            navigate('/login'); // Redirect to a default channel
         } catch (error) {
             alert('Registration failed');
             console.error('Registration error:', error);
@@ -50,6 +49,12 @@ const Register: React.FC = () => {
             <Button variant="contained" color="primary" type="submit">
                 Register
             </Button>
+            
+            <div className="text-center mt-4">
+                <Link to="/login" className="text-blue-500 hover:text-blue-700">
+                    Already have an account? Login here
+                </Link>
+            </div>
         </form>
     );
 };

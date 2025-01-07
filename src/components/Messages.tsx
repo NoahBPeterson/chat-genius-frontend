@@ -7,12 +7,49 @@ interface MessagesProps {
     isDM?: boolean;
 }
 
+interface Message {
+    id: number;
+    channel_id: number;
+    user_id: number;
+    content: string;
+    created_at: string;
+    timestamp: string;
+    author_name: string;
+}
+
+interface User {
+    id: number;
+    email: string;
+    displayname: string;
+}
+
 const Messages: React.FC<MessagesProps> = ({ channelId, channelName, isDM = false }) => {
-    const [messages, setMessages] = useState<any[]>([]);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [newMessage, setNewMessage] = useState<string>('');
     const [loading, setLoading] = useState(true);
-    const [currentChannelId, setCurrentChannelId] = useState(channelId);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    // Fetch users when component mounts
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const response = await API_Client.get('/api/users');
+                if (response.status === 200) {
+                    setUsers(response.data);
+                }
+            } catch (error) {
+                console.error('Error fetching users:', error);
+            }
+        };
+        fetchUsers();
+    }, []);
+
+    // Helper function to get author name
+    const getAuthorName = (userId: number) => {
+        const user = users.find(u => u.id === userId);
+        return user ? (user.email ?? user.displayname) : 'Unknown User';
+    };
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -21,13 +58,18 @@ const Messages: React.FC<MessagesProps> = ({ channelId, channelName, isDM = fals
     useEffect(() => {
         const fetchMessages = async () => {
             try {
+                let messageChannelId = channelId;
+                
                 if (isDM) {
-                    // Create or get DM channel first
-                    setCurrentChannelId((await API_Client.post(`/api/dm/${channelId}`)).data.id);
+                    const response = await API_Client.post(`/api/dm/${channelId}`);
+                    messageChannelId = response.data.id;
+                    console.log(`DM channel created/found: ${messageChannelId} for user ${channelId}`);
                 }
-                const response = await API_Client.get(`/api/channels/${currentChannelId}/messages`);
-                if (response.status === 200) {
-                    setMessages(response.data);
+                
+                const messagesResponse = await API_Client.get(`/api/channels/${messageChannelId}/messages`);
+                if (messagesResponse.status === 200) {
+                    console.log(`Fetching messages for channel ${messageChannelId}`);
+                    setMessages(messagesResponse.data);
                 }
             } catch (error) {
                 console.error('Error fetching messages:', error);
@@ -36,6 +78,7 @@ const Messages: React.FC<MessagesProps> = ({ channelId, channelName, isDM = fals
             }
         };
 
+        setLoading(true);
         fetchMessages();
     }, [channelId, isDM]);
 
@@ -43,27 +86,36 @@ const Messages: React.FC<MessagesProps> = ({ channelId, channelName, isDM = fals
         scrollToBottom();
     }, [messages, channelId]);
 
-    const handleSendMessage = async (message: string) => {
-        if (message.trim()) {
-            try {
-                const response = await API_Client.post(`/api/channels/${currentChannelId}/messages`, {
-                    content: message
-                });
-                if (response.status === 201) {
-                    setMessages([...messages, response.data]);
-                    setNewMessage('');
-                }
-            } catch (error) {
-                console.error('Error sending message:', error);
+    const handleSendMessage = async (content: string) => {
+        try {
+            let messageChannelId = channelId;
+            
+            if (isDM) {
+                // Ensure DM channel exists before sending
+                const response = await API_Client.post(`/api/dm/${channelId}`);
+                messageChannelId = response.data.id;
             }
+
+            const response = await API_Client.post(`/api/channels/${messageChannelId}/messages`, {
+                content: content
+            });
+
+            console.log('Send message response:', response.data);
+
+            if (response.status === 201) {
+                // Add the new message to the list
+                setMessages(prev => [...prev, response.data]);
+                scrollToBottom();
+            }
+        } catch (error) {
+            console.error('Error sending message:', error);
         }
     };
 
     if (loading) return <div>Loading messages...</div>;
-    
+
     return (
         <div className="flex flex-col h-screen w-full">
-            {/* Fixed Header */}
             <div className="sticky top-0 z-10 p-4 bg-purple-700">
                 <h2 className="text-lg font-semibold text-white">
                     {isDM ? (
@@ -77,7 +129,6 @@ const Messages: React.FC<MessagesProps> = ({ channelId, channelName, isDM = fals
                 </h2>
             </div>
 
-            {/* Messages Content */}
             <div className="flex-1 overflow-y-auto p-4 bg-purple-800">
                 <ul className="space-y-2">
                     {messages.map((message) => (
@@ -85,14 +136,25 @@ const Messages: React.FC<MessagesProps> = ({ channelId, channelName, isDM = fals
                             key={message.id}
                             className="p-2 bg-purple-700 rounded text-white"
                         >
-                            {message.content}
+                            <div className="flex flex-col">
+                                <div className="flex items-baseline gap-2">
+                                    <span className="font-bold text-purple-300">
+                                        {getAuthorName(message.user_id)}
+                                    </span>
+                                    <span className="text-xs text-purple-400">
+                                        {new Date(message.timestamp).toLocaleTimeString()}
+                                    </span>
+                                </div>
+                                <div className="mt-1 break-all whitespace-pre-wrap">
+                                    {message.content}
+                                </div>
+                            </div>
                         </li>
                     ))}
                 </ul>
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Message Input Box */}
             <div className="p-4 border-t border-purple-700 bg-purple-900">
                 <input
                     type="text"
@@ -114,5 +176,4 @@ const Messages: React.FC<MessagesProps> = ({ channelId, channelName, isDM = fals
         </div>
     );    
 };  
-
 export default Messages;

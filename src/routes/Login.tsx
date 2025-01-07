@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Button from '@mui/material/Button';
 import API_Client from '../API_Client';
 
@@ -13,7 +13,6 @@ const Login: React.FC = () => {
         try {
             const response = await API_Client.post('/api/login', { email, password });
             localStorage.setItem('token', response.data.token);
-            console.log(response.data.token);
             navigate('/'); // Redirect to a default channel
         } catch (error) {
             alert('Login failed');
@@ -41,6 +40,12 @@ const Login: React.FC = () => {
             <Button variant="contained" color="primary" type="submit">
                 Login
             </Button>
+
+            <div className="text-center mt-4">
+                <Link to="/register" className="text-blue-500 hover:text-blue-700">
+                    Need an account? Register here
+                </Link>
+            </div>
         </form>
     );
 };

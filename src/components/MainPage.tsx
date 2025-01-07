@@ -7,7 +7,7 @@ import { jwtDecode } from "jwt-decode";
 
 interface User {
     id: string;
-    displayname: string;
+    display_name: string;
     email: string;
 }
 
@@ -15,6 +15,7 @@ const MainPage: React.FC = () => {
     const [channels, setChannels] = useState<any[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
     const [isDM, setIsDM] = useState(false);
     const [newChannelName, setNewChannelName] = useState<string>('');
     const [userRole, setUserRole] = useState<string | null>(null);
@@ -41,9 +42,13 @@ const MainPage: React.FC = () => {
             const response = await API_Client.get('/api/users');
             if (response.status === 200) {
                 setUsers(response.data);
+                console.log("users", response.data);
+            } else {
+                navigate('/login');
             }
         } catch (error) {
             console.error('Error fetching users:', error);
+            navigate('/login');
         }
     };
 
@@ -52,6 +57,8 @@ const MainPage: React.FC = () => {
         if (token) {
             const decoded: { role: string } = jwtDecode(token);
             setUserRole(decoded.role);
+        } else {
+            navigate('/login');
         }
 
         fetchChannels();
@@ -78,6 +85,27 @@ const MainPage: React.FC = () => {
         }
     };
 
+    const handleDMSelect = async (userId: string) => {
+        try {
+            const response = await API_Client.post(`/api/dm/${userId}`);
+            setSelectedChannelId(response.data.id);
+            setSelectedUserId(userId);
+            setIsDM(true);
+        } catch (error) {
+            console.error('Error creating DM:', error);
+        }
+    };
+
+    const handleChannelSelect = (channelId: string) => {
+        setSelectedChannelId(channelId);
+        setSelectedUserId(null);
+        setIsDM(false);
+    };
+
+    console.log("users", users);
+    console.log("display_name/email", (users.find(u => u.id === selectedChannelId)?.email));
+    console.log("display_name/email", (users.find(u => u.id === selectedChannelId)?.display_name));
+    console.log("both", (users.find(u => u.id === selectedChannelId)?.display_name ?? users.find(u => u.id === selectedChannelId)?.email));
     return (
     <div className="flex h-screen w-screen">
         {/* Sidebar */}
@@ -110,7 +138,8 @@ const MainPage: React.FC = () => {
                 <Sidebar
                     channels={channels}
                     users={users}
-                    setSelectedChannelId={setSelectedChannelId}
+                    onChannelSelect={handleChannelSelect}
+                    onUserSelect={handleDMSelect}
                     setIsDM={setIsDM}
                 />
 
@@ -127,7 +156,7 @@ const MainPage: React.FC = () => {
                     <Messages 
                         channelId={selectedChannelId}
                         channelName={isDM 
-                            ? users.find(u => u.id === selectedChannelId)?.displayname
+                            ? users.find(u => u.id === selectedUserId)?.display_name ?? users.find(u => u.id === selectedUserId)?.email
                             : channels.find(c => c.id === selectedChannelId)?.name
                         }
                         isDM={isDM}
