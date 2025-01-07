@@ -2,26 +2,32 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Button from '@mui/material/Button';
 import API_Client from '../API_Client';
+import { setAuthToken } from '../API_Client';
 
 const Login: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [error, setError] = useState<string | null>(null);
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
             const response = await API_Client.post('/api/login', { email, password });
-            localStorage.setItem('token', response.data.token);
-            navigate('/'); // Redirect to a default channel
+            if (response.status === 200) {
+                const token = response.data.token;
+                setAuthToken(token);
+                navigate('/');
+            }
         } catch (error) {
-            alert('Login failed');
             console.error('Login error:', error);
+            setError('Invalid credentials');
         }
     };
 
     return (
         <form onSubmit={handleSubmit} className="p-4 max-w-md mx-auto space-y-4">
+            {error && <div className="text-red-500">{error}</div>}
             <h1 className="text-xl font-bold">Login</h1>
             <input
                 type="email"

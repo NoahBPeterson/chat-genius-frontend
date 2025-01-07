@@ -1,11 +1,7 @@
 import { jwtDecode } from 'jwt-decode';
 import React from 'react';
-
-interface User {
-    id: string;
-    display_name: string;
-    email: string;
-}
+import { User, JWTPayload } from '../types/Types';
+import { useNavigate } from 'react-router-dom';
 
 interface SidebarProps {
     channels: any[];
@@ -22,13 +18,12 @@ const Sidebar: React.FC<SidebarProps> = ({
     onUserSelect,
     setIsDM 
 }) => {
+    const navigate = useNavigate();
     const handleChannelClick = (channelId: string) => {
         setIsDM(false);
         onChannelSelect(channelId);
     };
-    console.log("THIS ONE", jwtDecode(localStorage.getItem('token') as string));
-    console.log(channels);
-    console.log(users);
+
     return (
         <>
             <h1 className="text-4xl font-bold text-center py-6">ChatGenius</h1>
@@ -40,7 +35,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                         {channels.map(channel => (
                             <li key={channel.id}>
                                 <button 
-                                    onClick={() => handleChannelClick(channel.id)}
+                                    onClick={() => {
+                                        console.log('Clicking channel:', channel.id);
+                                        handleChannelClick(channel.id);
+                                    }}
                                     className="w-full text-left px-2 py-1 hover:bg-purple-700 rounded"
                                 >
                                     #{channel.name}
@@ -55,11 +53,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <h2 className="text-lg font-semibold mb-2">Direct Messages</h2>
                 <ul className="space-y-1">
                     {(() => {
-                        const currentUserId = jwtDecode<{ userId: number, role: string, iat: number, exp: number }>(localStorage.getItem('token') as string).userId;
+                        const token = localStorage.getItem('token') as string;
+                        if (!token) {
+                            navigate('/login');
+                            return null;
+                        }
+                        const currentUserId = jwtDecode<JWTPayload>(token)?.userId;
                         console.log('Current user ID:', currentUserId);
                         console.log('All users:', users.map(u => ({ id: u.id, name: u.display_name })));
                         return users.filter(user => {
-                            console.log(`Comparing ${Number(user.id)} !== ${currentUserId}: ${Number(user.id) !== currentUserId}`);
                             return Number(user.id) !== currentUserId;
                         }).map(user => (
                             <li key={user.id}>

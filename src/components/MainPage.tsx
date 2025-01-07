@@ -1,15 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Messages from './Messages';
-import API_Client from '../API_Client';
+import API_Client, { hasValidToken } from '../API_Client';
 import { jwtDecode } from "jwt-decode";
+import { Message, JWTPayload } from '../types/Types';
 
 interface User {
     id: string;
     display_name: string;
     email: string;
 }
+
+
 
 const MainPage: React.FC = () => {
     const [channels, setChannels] = useState<any[]>([]);
@@ -20,15 +23,23 @@ const MainPage: React.FC = () => {
     const [newChannelName, setNewChannelName] = useState<string>('');
     const [userRole, setUserRole] = useState<string | null>(null);
     const [isInputVisible, setIsInputVisible] = useState<boolean>(false);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const wsRef = useRef<WebSocket | null>(null);
     const navigate = useNavigate();
 
     const fetchChannels = async () => {
         try {
+            if (!hasValidToken()) {
+                navigate('/login');
+                return;
+            }
             const response = await API_Client.get('/api/channels');
             if (response.status === 200) {
                 setChannels(response.data);
                 if (response.data.length > 0) {
-                    setSelectedChannelId(response.data[0].id);
+                    const initialChannelId = response.data[0].id;
+                    setSelectedChannelId(initialChannelId);
+                    await fetchMessages(initialChannelId);
                 }
             }
         } catch (error) {
@@ -39,10 +50,13 @@ const MainPage: React.FC = () => {
 
     const fetchUsers = async () => {
         try {
+            if (!hasValidToken()) {
+                navigate('/login');
+                return;
+            }
             const response = await API_Client.get('/api/users');
             if (response.status === 200) {
                 setUsers(response.data);
-                console.log("users", response.data);
             } else {
                 navigate('/login');
             }
@@ -65,6 +79,87 @@ const MainPage: React.FC = () => {
         fetchUsers();
     }, [navigate]);
 
+    useEffect(() => {
+        const connectWebSocket = () => {
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+                return;
+            }
+
+            wsRef.current = new WebSocket('ws://localhost:8080');
+            
+            wsRef.current.onopen = () => {
+                console.log('WebSocket Connected');
+            };
+
+            wsRef.current.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('WebSocket received:', data);
+
+                switch (data.type) {
+                    case 'new_message':
+                        /*
+                        console.log("new_message: ", {
+                            messageChannelId: data.message.channel_id,
+                            currentChannelId: selectedChannelId,
+                            isCurrentChannel: data.message.channel_id === selectedChannelId
+                        });*/
+                        
+                        if (data.message.channel_id === selectedChannelId) {
+                            setMessages(prev => {
+                                const messageExists = prev.some(msg => 
+                                    msg.id === data.message.id && 
+                                    msg.channel_id === data.message.channel_id
+                                );
+                                if (messageExists) {
+                                    return prev;
+                                }
+                                return [...prev, data.message];
+                            });
+                        }
+                        break;
+                    case 'user_update':
+                        setUsers(data.users);
+                        break;
+                    case 'channel_update':
+                        setChannels(data.channels);
+                        break;
+                    default:
+                        console.log('Unknown message type:', data);
+                }
+            };
+
+            wsRef.current.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            wsRef.current.onclose = () => {
+                console.log('WebSocket disconnected. Attempting to reconnect...');
+                setTimeout(connectWebSocket, 1000);
+            };
+        };
+
+        connectWebSocket();
+        
+        return () => {
+            if (wsRef.current) {
+                wsRef.current.close();
+            }
+        };
+    }, [selectedChannelId]);
+
+    // Function to send messages through WebSocket
+    const sendMessage = (content: string) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+                type: 'new_message',
+                channelId: selectedChannelId,
+                content: content,
+                isDM: isDM,
+                token: localStorage.getItem('token')
+            }));
+        }
+    };
+
     const handleCreateChannel = async () => {
         if (!newChannelName) return;
         try {
@@ -85,27 +180,51 @@ const MainPage: React.FC = () => {
         }
     };
 
-    const handleDMSelect = async (userId: string) => {
+    const handleUserSelect = async (userId: string) => {
         try {
             const response = await API_Client.post(`/api/dm/${userId}`);
+            setMessages([]); // Clear messages first
             setSelectedChannelId(response.data.id);
             setSelectedUserId(userId);
             setIsDM(true);
+
+            // Fetch initial messages via REST API
+            await fetchMessages(response.data.id);
         } catch (error) {
-            console.error('Error creating DM:', error);
+            console.error('Error setting up DM:', error);
         }
     };
 
-    const handleChannelSelect = (channelId: string) => {
-        setSelectedChannelId(channelId);
-        setSelectedUserId(null);
-        setIsDM(false);
+    const handleChannelSelect = async (channelId: string) => {
+        setMessages([]); // Clear messages first
+        
+        // Wait for state update to complete
+        await new Promise(resolve => {
+            setSelectedChannelId(channelId);
+            setSelectedUserId(null);
+            setIsDM(false);
+            resolve(null);
+        });
+        
+        await fetchMessages(channelId);
+    };
+
+    // Add this function to fetch messages via REST API
+    const fetchMessages = async (channelId: string) => {
+        try {
+            const response = await API_Client.get(`/api/channels/${channelId}/messages`);
+            if (response.status === 200) {
+                setMessages(response.data);
+            }
+            console.log("fetchMessages for channel", channelId, ":", response.data);
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+        }
     };
 
     console.log("users", users);
-    console.log("display_name/email", (users.find(u => u.id === selectedChannelId)?.email));
-    console.log("display_name/email", (users.find(u => u.id === selectedChannelId)?.display_name));
     console.log("both", (users.find(u => u.id === selectedChannelId)?.display_name ?? users.find(u => u.id === selectedChannelId)?.email));
+
     return (
     <div className="flex h-screen w-screen">
         {/* Sidebar */}
@@ -139,7 +258,7 @@ const MainPage: React.FC = () => {
                     channels={channels}
                     users={users}
                     onChannelSelect={handleChannelSelect}
-                    onUserSelect={handleDMSelect}
+                    onUserSelect={handleUserSelect}
                     setIsDM={setIsDM}
                 />
 
@@ -161,6 +280,8 @@ const MainPage: React.FC = () => {
                             : channels.find(c => c.id === selectedChannelId)?.name
                         }
                         isDM={isDM}
+                        messages={messages}
+                        onSendMessage={sendMessage}
                     />
                 )}
             </div>
