@@ -12,6 +12,7 @@ interface MessagesProps {
     isSearchResults?: boolean;
     channels?: Channel[];
     users?: User[];
+    onMessageClick?: (channelId: string, messageId: string) => void;
 }
 
 const Messages: React.FC<MessagesProps> = ({ 
@@ -22,13 +23,46 @@ const Messages: React.FC<MessagesProps> = ({
     onSendMessage,
     isSearchResults = false,
     channels = [],
-    users = []
+    users = [],
+    onMessageClick
 }) => {
     const [newMessage, setNewMessage] = useState<string>('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const highlightedMessageId = useRef<string | null>(null);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (highlightedMessageId.current) return;
+        messagesContainerRef.current?.scrollTo({
+            top: messagesContainerRef.current.scrollHeight,
+            behavior: "auto"
+        });
+    };
+
+    const scrollToMessage = (messageId: string) => {
+        highlightedMessageId.current = messageId;
+        setTimeout(() => {
+            const messageElement = document.getElementById(`message-${messageId}`);
+            if (messageElement && messagesContainerRef.current) {
+                const containerRect = messagesContainerRef.current.getBoundingClientRect();
+                const messageRect = messageElement.getBoundingClientRect();
+                const scrollTop = messageRect.top - containerRect.top - (containerRect.height / 2) + messagesContainerRef.current.scrollTop;
+                
+                messagesContainerRef.current.scrollTo({
+                    top: scrollTop,
+                    behavior: 'smooth'
+                });
+                
+                messageElement.classList.remove('bg-purple-700');
+                messageElement.classList.add('bg-purple-400');
+                
+                setTimeout(() => {
+                    messageElement.classList.remove('bg-purple-400');
+                    messageElement.classList.add('bg-purple-700');
+                    highlightedMessageId.current = null;
+                }, 2000);
+            }
+        }, 100);
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -41,7 +75,14 @@ const Messages: React.FC<MessagesProps> = ({
     };
 
     useEffect(() => {
-        scrollToBottom();
+        const urlParams = new URLSearchParams(window.location.search);
+        const messageId = urlParams.get('message');
+        console.log("messageId MESSAGES", messageId);
+        if (messageId) {
+            scrollToMessage(messageId);
+        } else {
+            scrollToBottom();
+        }
     }, [messages]);
 
     const getChannelName = (channelId: string) => {
@@ -76,12 +117,23 @@ const Messages: React.FC<MessagesProps> = ({
                 </h2>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 bg-purple-800">
+            <div 
+                ref={messagesContainerRef}
+                className="flex-1 overflow-y-auto p-4 bg-purple-800"
+            >
                 <ul className="space-y-2">
                     {messages.map((message) => (
                         <li
                             key={message.id}
-                            className="p-2 bg-purple-700 rounded text-white"
+                            id={`message-${message.id}`}
+                            onClick={() => {
+                                if (isSearchResults && onMessageClick) {
+                                    onMessageClick(message.channel_id.toString(), message.id.toString());
+                                }
+                            }}
+                            className={`p-2 rounded text-white transition-all duration-300 ease-in-out
+                                ${isSearchResults ? 'cursor-pointer hover:bg-purple-600' : ''}
+                                bg-purple-700 hover:bg-purple-600`}
                         >
                             <div className="flex flex-col">
                                 {isSearchResults && (
@@ -105,6 +157,7 @@ const Messages: React.FC<MessagesProps> = ({
                             </div>
                         </li>
                     ))}
+                    <div ref={messagesEndRef} />
                 </ul>
             </div>
 

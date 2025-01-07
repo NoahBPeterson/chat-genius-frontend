@@ -186,11 +186,14 @@ const MainPage: React.FC = () => {
         try {
             const response = await API_Client.post(`/api/dm/${userId}`);
             setMessages([]); // Clear messages first
+            
+            // Remove search query from URL
+            navigate('/', { replace: true });
+            
             setSelectedChannelId(response.data.id);
             setSelectedUserId(userId);
             setIsDM(true);
 
-            // Fetch initial messages via REST API
             await fetchMessages(response.data.id);
         } catch (error) {
             console.error('Error setting up DM:', error);
@@ -200,7 +203,9 @@ const MainPage: React.FC = () => {
     const handleChannelSelect = async (channelId: string) => {
         setMessages([]); // Clear messages first
         
-        // Wait for state update to complete
+        // Remove search query from URL
+        navigate('/', { replace: true });
+        
         await new Promise(resolve => {
             setSelectedChannelId(channelId);
             setSelectedUserId(null);
@@ -237,6 +242,33 @@ const MainPage: React.FC = () => {
         } catch (error) {
             console.error('Search error:', error);
         }
+    };
+
+    const handleMessageClick = async (channelId: string, messageId: string) => {
+        setMessages([]); // Clear messages first
+        
+        const channel = channels.find(c => String(c.id) === String(channelId));
+        console.log('Clicked message channel:', {
+            channel,
+            channelId,
+            isDM: channel?.is_dm,
+            name: channel?.name
+        });
+
+        setSelectedChannelId(channelId);
+        setIsDM(channel?.is_dm || false);
+        
+        // If it's a DM, set the selectedUserId
+        if (channel?.is_dm) {
+            const currentUserId = Number(jwtDecode<JWTPayload>(localStorage.getItem('token') as string).userId);
+            const otherUserId = channel.dm_participants.find((id: number) => id !== currentUserId);
+            setSelectedUserId(otherUserId?.toString() || null);
+        } else {
+            setSelectedUserId(null);
+        }
+        
+        navigate(`/?message=${messageId}`, { replace: true });
+        await fetchMessages(channelId);
     };
 
     console.log("users", users);
@@ -297,9 +329,9 @@ const MainPage: React.FC = () => {
                             selectedChannelId === SEARCH_CHANNEL_ID 
                                 ? `Search Results: "${searchParams.get('q')}"` 
                                 : isDM 
-                                    ? users.find(u => u.id === selectedUserId)?.display_name ?? 
-                                      users.find(u => u.id === selectedUserId)?.email
-                                    : channels.find(c => c.id === selectedChannelId)?.name
+                                    ? users.find(u => String(u.id) === String(selectedUserId))?.display_name ?? 
+                                      users.find(u => String(u.id) === String(selectedUserId))?.email
+                                    : channels.find(c => String(c.id) === String(selectedChannelId))?.name
                         }
                         isDM={isDM}
                         messages={messages}
@@ -307,6 +339,7 @@ const MainPage: React.FC = () => {
                         isSearchResults={selectedChannelId === SEARCH_CHANNEL_ID}
                         channels={channels}
                         users={users}
+                        onMessageClick={handleMessageClick}
                     />
                 )}
             </div>
