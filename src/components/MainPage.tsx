@@ -5,9 +5,17 @@ import Messages from './Messages';
 import API_Client from '../API_Client';
 import { jwtDecode } from "jwt-decode";
 
+interface User {
+    id: string;
+    displayname: string;
+    email: string;
+}
+
 const MainPage: React.FC = () => {
     const [channels, setChannels] = useState<any[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+    const [isDM, setIsDM] = useState(false);
     const [newChannelName, setNewChannelName] = useState<string>('');
     const [userRole, setUserRole] = useState<string | null>(null);
     const [isInputVisible, setIsInputVisible] = useState<boolean>(false);
@@ -28,6 +36,17 @@ const MainPage: React.FC = () => {
         }
     };
 
+    const fetchUsers = async () => {
+        try {
+            const response = await API_Client.get('/api/users');
+            if (response.status === 200) {
+                setUsers(response.data);
+            }
+        } catch (error) {
+            console.error('Error fetching users:', error);
+        }
+    };
+
     useEffect(() => {
         const token = localStorage.getItem('token');
         if (token) {
@@ -36,6 +55,7 @@ const MainPage: React.FC = () => {
         }
 
         fetchChannels();
+        fetchUsers();
     }, [navigate]);
 
     const handleCreateChannel = async () => {
@@ -89,7 +109,9 @@ const MainPage: React.FC = () => {
                 {/* Sidebar Content */}
                 <Sidebar
                     channels={channels}
+                    users={users}
                     setSelectedChannelId={setSelectedChannelId}
+                    setIsDM={setIsDM}
                 />
 
                 {/* Footer (Settings/Profile Icons) */}
@@ -101,7 +123,16 @@ const MainPage: React.FC = () => {
 
                 {/* Messages Area */}
                 <div className="flex-1">
-                {selectedChannelId && <Messages channelId={selectedChannelId} />}
+                {selectedChannelId && (
+                    <Messages 
+                        channelId={selectedChannelId}
+                        channelName={isDM 
+                            ? users.find(u => u.id === selectedChannelId)?.displayname
+                            : channels.find(c => c.id === selectedChannelId)?.name
+                        }
+                        isDM={isDM}
+                    />
+                )}
             </div>
         </div>
     );

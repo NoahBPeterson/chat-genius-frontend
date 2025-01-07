@@ -15,7 +15,8 @@ const Register: React.FC = () => {
             console.log(email, password, displayname);
             const response = await API_Client.post('/api/register', { email, password, displayname });
             localStorage.setItem('token', response.data.token);
-            navigate('/channels/1'); // Redirect to a default channel
+            console.log(response.data, response.data.token);
+            navigate('/'); // Redirect to a default channel
         } catch (error) {
             alert('Registration failed');
             console.error('Registration error:', error);

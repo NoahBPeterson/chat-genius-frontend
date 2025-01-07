@@ -1,15 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import API_Client from '../API_Client';
 
-const Messages: React.FC<{ channelId: string }> = ({ channelId }) => {
+interface MessagesProps {
+    channelId: string;
+    channelName?: string;
+    isDM?: boolean;
+}
+
+const Messages: React.FC<MessagesProps> = ({ channelId, channelName, isDM = false }) => {
     const [messages, setMessages] = useState<any[]>([]);
     const [newMessage, setNewMessage] = useState<string>('');
     const [loading, setLoading] = useState(true);
+    const [currentChannelId, setCurrentChannelId] = useState(channelId);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
 
     useEffect(() => {
         const fetchMessages = async () => {
             try {
-                const response = await API_Client.get(`/api/channels/${channelId}/messages`);
+                if (isDM) {
+                    // Create or get DM channel first
+                    setCurrentChannelId((await API_Client.post(`/api/dm/${channelId}`)).data.id);
+                }
+                const response = await API_Client.get(`/api/channels/${currentChannelId}/messages`);
                 if (response.status === 200) {
                     setMessages(response.data);
                 }
@@ -21,12 +37,16 @@ const Messages: React.FC<{ channelId: string }> = ({ channelId }) => {
         };
 
         fetchMessages();
-    }, [channelId]);
+    }, [channelId, isDM]);
+
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages, channelId]);
 
     const handleSendMessage = async (message: string) => {
         if (message.trim()) {
             try {
-                const response = await API_Client.post(`/api/channels/${channelId}/messages`, {
+                const response = await API_Client.post(`/api/channels/${currentChannelId}/messages`, {
                     content: message
                 });
                 if (response.status === 201) {
@@ -40,15 +60,25 @@ const Messages: React.FC<{ channelId: string }> = ({ channelId }) => {
     };
 
     if (loading) return <div>Loading messages...</div>;
-    messages.map((message, index) => {
-        console.log(message, index);
-    })
     
     return (
         <div className="flex flex-col h-screen w-full">
-            {/* Messages Display */}
+            {/* Fixed Header */}
+            <div className="sticky top-0 z-10 p-4 bg-purple-700">
+                <h2 className="text-lg font-semibold text-white">
+                    {isDM ? (
+                        <span>
+                            <span className="mr-2">👤</span>
+                            {channelName}
+                        </span>
+                    ) : (
+                        <span>#{channelName || channelId}</span>
+                    )}
+                </h2>
+            </div>
+
+            {/* Messages Content */}
             <div className="flex-1 overflow-y-auto p-4 bg-purple-800">
-                <h2 className="text-lg font-semibold mb-2 text-white">Messages</h2>
                 <ul className="space-y-2">
                     {messages.map((message) => (
                         <li
@@ -59,18 +89,22 @@ const Messages: React.FC<{ channelId: string }> = ({ channelId }) => {
                         </li>
                     ))}
                 </ul>
+                <div ref={messagesEndRef} />
             </div>
-    
+
             {/* Message Input Box */}
             <div className="p-4 border-t border-purple-700 bg-purple-900">
                 <input
                     type="text"
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyUp={(e) => {
-                        if (e.key === 'Enter') {
-                            handleSendMessage(newMessage);
-                            setNewMessage('');
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.repeat) {
+                            e.preventDefault();
+                            if (newMessage.trim()) {
+                                handleSendMessage(newMessage);
+                                setNewMessage('');
+                            }
                         }
                     }}
                     placeholder="Type your message..."
