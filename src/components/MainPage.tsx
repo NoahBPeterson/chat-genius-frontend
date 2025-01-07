@@ -156,7 +156,8 @@ const MainPage: React.FC = () => {
                     <Messages 
                         channelId={selectedChannelId}
                         channelName={isDM 
-                            ? users.find(u => u.id === selectedUserId)?.display_name ?? users.find(u => u.id === selectedUserId)?.email
+                            ? users.find(u => u.id === selectedUserId)?.display_name ?? 
+                              users.find(u => u.id === selectedUserId)?.email
                             : channels.find(c => c.id === selectedChannelId)?.name
                         }
                         isDM={isDM}

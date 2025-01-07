@@ -54,18 +54,25 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div className="sidebar flex-1 overflow-y-auto p-4 flex-shrink-0">
                 <h2 className="text-lg font-semibold mb-2">Direct Messages</h2>
                 <ul className="space-y-1">
-                    {users.filter(user => Number(user.id) !== jwtDecode<{ userId: number, role: string, iat: number, exp: number }>(localStorage.getItem('token') as string).userId)
-                        .map(user => (
-                        <li key={user.id}>
-                            <button 
-                                onClick={() => onUserSelect(user.id)}
-                                className="w-full text-left px-2 py-1 hover:bg-purple-700 rounded flex items-center"
-                            >
-                                <span className="mr-2">👤</span>
-                                {user?.display_name ?? user?.email ?? "Unknown User"}
-                            </button>
-                        </li>
-                    ))}
+                    {(() => {
+                        const currentUserId = jwtDecode<{ userId: number, role: string, iat: number, exp: number }>(localStorage.getItem('token') as string).userId;
+                        console.log('Current user ID:', currentUserId);
+                        console.log('All users:', users.map(u => ({ id: u.id, name: u.display_name })));
+                        return users.filter(user => {
+                            console.log(`Comparing ${Number(user.id)} !== ${currentUserId}: ${Number(user.id) !== currentUserId}`);
+                            return Number(user.id) !== currentUserId;
+                        }).map(user => (
+                            <li key={user.id}>
+                                <button 
+                                    onClick={() => onUserSelect(user.id)}
+                                    className="w-full text-left px-2 py-1 hover:bg-purple-700 rounded flex items-center"
+                                >
+                                    <span className="mr-2">👤</span>
+                                    {user?.display_name ?? user?.email ?? "Unknown User"}
+                                </button>
+                            </li>
+                        ));
+                    })()}
                 </ul>
             </div>
         </>
