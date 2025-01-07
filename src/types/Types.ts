@@ -24,4 +24,6 @@ export interface User {
 export interface Channel {
     id: string;
     name: string;
+    is_dm: boolean;
+    dm_participants: number[];
 }

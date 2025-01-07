@@ -32,7 +32,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className="mb-6">
                     <h2 className="text-lg font-semibold mb-2">Channels</h2>
                     <ul className="space-y-1">
-                        {channels.map(channel => (
+                        {channels.filter(channel => channel.is_dm === false)
+                                 .map(channel => (
                             <li key={channel.id}>
                                 <button 
                                     onClick={() => {

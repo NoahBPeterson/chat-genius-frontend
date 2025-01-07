@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Messages from './Messages';
 import API_Client, { hasValidToken } from '../API_Client';
 import { jwtDecode } from "jwt-decode";
 import { Message, JWTPayload } from '../types/Types';
+import SearchBar from './SearchBar';
+import SearchResults from './SearchResults';
 
 interface User {
     id: string;
@@ -12,12 +14,13 @@ interface User {
     email: string;
 }
 
-
+// Add a special channel ID for search results
+const SEARCH_CHANNEL_ID = 'search-results';
 
 const MainPage: React.FC = () => {
     const [channels, setChannels] = useState<any[]>([]);
     const [users, setUsers] = useState<User[]>([]);
-    const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
+    const [selectedChannelId, setSelectedChannelId] = useState<string>("1");
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
     const [isDM, setIsDM] = useState(false);
     const [newChannelName, setNewChannelName] = useState<string>('');
@@ -26,6 +29,8 @@ const MainPage: React.FC = () => {
     const [messages, setMessages] = useState<Message[]>([]);
     const wsRef = useRef<WebSocket | null>(null);
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const searchQuery = searchParams.get('q');
 
     const fetchChannels = async () => {
         try {
@@ -120,9 +125,6 @@ const MainPage: React.FC = () => {
                     case 'user_update':
                         setUsers(data.users);
                         break;
-                    case 'channel_update':
-                        setChannels(data.channels);
-                        break;
                     default:
                         console.log('Unknown message type:', data);
                 }
@@ -216,9 +218,24 @@ const MainPage: React.FC = () => {
             if (response.status === 200) {
                 setMessages(response.data);
             }
-            console.log("fetchMessages for channel", channelId, ":", response.data);
         } catch (error) {
             console.error('Error fetching messages:', error);
+        }
+    };
+
+    const handleSearch = async (searchQuery: string) => {
+        try {
+            const response = await API_Client.get(`/api/messages/search`, { params: { query: searchQuery } });
+            if (response.status === 200) {
+                console.log("Search response:", response.data);
+                setMessages(response.data);
+                setSelectedChannelId(SEARCH_CHANNEL_ID);
+                setIsDM(false);
+                // Update URL with search query
+                navigate(`/?q=${encodeURIComponent(searchQuery)}`);
+            }
+        } catch (error) {
+            console.error('Search error:', error);
         }
     };
 
@@ -229,6 +246,8 @@ const MainPage: React.FC = () => {
     <div className="flex h-screen w-screen">
         {/* Sidebar */}
         <div className="w-1/5 min-w-[250px] bg-gray-800 text-white flex flex-col justify-between flex-shrink-0">
+            <SearchBar onSearch={handleSearch} />
+            
             {/* Admin Controls */}
             {userRole === 'admin' && (
                     <div className="p-4 border-b border-gray-700">
@@ -269,19 +288,25 @@ const MainPage: React.FC = () => {
                 </div>
             </div>
 
-                {/* Messages Area */}
-                <div className="flex-1">
+            {/* Messages/Search Area */}
+            <div className="flex-1">
                 {selectedChannelId && (
                     <Messages 
                         channelId={selectedChannelId}
-                        channelName={isDM 
-                            ? users.find(u => u.id === selectedUserId)?.display_name ?? 
-                              users.find(u => u.id === selectedUserId)?.email
-                            : channels.find(c => c.id === selectedChannelId)?.name
+                        channelName={
+                            selectedChannelId === SEARCH_CHANNEL_ID 
+                                ? `Search Results: "${searchParams.get('q')}"` 
+                                : isDM 
+                                    ? users.find(u => u.id === selectedUserId)?.display_name ?? 
+                                      users.find(u => u.id === selectedUserId)?.email
+                                    : channels.find(c => c.id === selectedChannelId)?.name
                         }
                         isDM={isDM}
                         messages={messages}
                         onSendMessage={sendMessage}
+                        isSearchResults={selectedChannelId === SEARCH_CHANNEL_ID}
+                        channels={channels}
+                        users={users}
                     />
                 )}
             </div>
