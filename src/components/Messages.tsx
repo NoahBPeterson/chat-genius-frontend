@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Channel, Message } from '../types/Types';
 import { jwtDecode } from 'jwt-decode';
 import { User, JWTPayload } from '../types/Types';
+import FileUpload from './FileUpload';
+import API_Client from '../API_Client';
 
 interface MessagesProps {
     channelId: string;
@@ -13,7 +15,51 @@ interface MessagesProps {
     channels?: Channel[];
     users?: User[];
     onMessageClick?: (channelId: string, messageId: string) => void;
+    onFileUpload: (storagePath: string, filename: string, size: number, mimeType: string) => void;
 }
+
+const MessageContent: React.FC<{ content: string }> = ({ content }) => {
+    const [fileUrl, setFileUrl] = useState<string | null>(null);
+    const fileMatch = content.match(/\[File: (.*?)\]\((.*?)\)/);
+
+    useEffect(() => {
+        const fetchFileUrl = async () => {
+            if (fileMatch) {
+                try {
+                    const response = await API_Client.get(`/api/files/${fileMatch[2]}`);
+                    setFileUrl(response.data.downloadUrl);
+                } catch (error) {
+                    console.error('Error fetching file URL:', error);
+                }
+            }
+        };
+
+        fetchFileUrl();
+    }, [content]);
+
+    if (fileMatch) {
+        const [, filename] = fileMatch;
+        const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(filename);
+        return isImage && fileUrl ? (
+            <img 
+                src={fileUrl}
+                alt={filename}
+                className="max-w-md max-h-60 rounded-lg cursor-pointer hover:opacity-90"
+            />
+        ) : (
+            <a 
+                href={fileUrl || '#'}
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-300 hover:text-blue-200 underline"
+            >
+                📎 {filename}
+            </a>
+        );
+    }
+
+    return <span>{content}</span>;
+};
 
 const Messages: React.FC<MessagesProps> = ({ 
     channelId, 
@@ -24,7 +70,8 @@ const Messages: React.FC<MessagesProps> = ({
     isSearchResults = false,
     channels = [],
     users = [],
-    onMessageClick
+    onMessageClick,
+    onFileUpload
 }) => {
     const [newMessage, setNewMessage] = useState<string>('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -152,7 +199,7 @@ const Messages: React.FC<MessagesProps> = ({
                                     </span>
                                 </div>
                                 <div className="mt-1 break-all whitespace-pre-wrap">
-                                    {message.content}
+                                    <MessageContent content={message.content} />
                                 </div>
                             </div>
                         </li>
@@ -163,19 +210,22 @@ const Messages: React.FC<MessagesProps> = ({
 
             {!isSearchResults && (
                 <div className="p-4 border-t border-purple-700 bg-purple-900">
-                    <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.repeat) {
-                                e.preventDefault();
-                                handleSubmit(e);
-                            }
-                        }}
-                        placeholder="Type your message..."
-                        className="w-full p-2 border rounded bg-purple-700 text-white placeholder-gray-400"
-                    />
+                    <div className="flex items-center gap-2">
+                        <FileUpload onUploadComplete={onFileUpload} />
+                        <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.repeat) {
+                                    e.preventDefault();
+                                    handleSubmit(e);
+                                }
+                            }}
+                            placeholder="Type your message..."
+                            className="w-full p-2 border rounded bg-purple-700 text-white placeholder-gray-400"
+                        />
+                    </div>
                 </div>
             )}
         </div>

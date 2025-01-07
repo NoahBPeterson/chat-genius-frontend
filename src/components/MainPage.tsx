@@ -271,6 +271,23 @@ const MainPage: React.FC = () => {
         await fetchMessages(channelId);
     };
 
+    const handleFileUpload = async (storagePath: string, filename: string, size: number, mimeType: string) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+                type: 'new_message',
+                channelId: selectedChannelId,
+                content: `[File: ${filename}](${storagePath})`,
+                isDM: isDM,
+                token: localStorage.getItem('token'),
+                attachments: [{
+                    filename: filename,
+                    mime_type: mimeType,
+                    size: size,
+                    storage_path: storagePath
+                }]
+            }));
+        }
+    };
     console.log("users", users);
     console.log("both", (users.find(u => u.id === selectedChannelId)?.display_name ?? users.find(u => u.id === selectedChannelId)?.email));
 
@@ -340,6 +357,7 @@ const MainPage: React.FC = () => {
                         channels={channels}
                         users={users}
                         onMessageClick={handleMessageClick}
+                        onFileUpload={handleFileUpload}
                     />
                 )}
             </div>
