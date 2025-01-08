@@ -27,6 +27,7 @@ const MainPage: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const searchQuery = searchParams.get('q');
+    const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
     const fetchChannels = async () => {
         try {
@@ -186,6 +187,21 @@ const MainPage: React.FC = () => {
                                     return {
                                         ...user,
                                         presence_status: presence.presence_status
+                                    };
+                                }
+                                return user;
+                            });
+                            return updatedUsers;
+                        });
+                        break;
+                    case 'custom_status_update':
+                        console.log('Handling custom status update:', data);
+                        setUsers(prevUsers => {
+                            const updatedUsers = prevUsers.map(user => {
+                                if (user.id === data.userId) {
+                                    return {
+                                        ...user,
+                                        custom_status: data.statusMessage
                                     };
                                 }
                                 return user;
@@ -379,10 +395,11 @@ const MainPage: React.FC = () => {
             <div className="flex h-screen w-screen">
                 {/* Sidebar */}
                 <div className="w-1/5 min-w-[250px] bg-gray-800 text-white flex flex-col justify-between flex-shrink-0">
-                    <SearchBar onSearch={handleSearch} />
-                    
-                    {/* Admin Controls */}
-                    {userRole === 'admin' && (
+                    <div className="flex flex-col flex-grow overflow-hidden">
+                        <SearchBar onSearch={handleSearch} />
+                        
+                        {/* Admin Controls */}
+                        {userRole === 'admin' && (
                             <div className="p-4 border-b border-gray-700">
                                 <button
                                     onClick={() => setIsInputVisible(!isInputVisible)}
@@ -414,58 +431,69 @@ const MainPage: React.FC = () => {
                             setIsDM={setIsDM}
                             wsRef={wsRef}
                         />
+                    </div>
 
-                        {/* Footer (Settings/Profile Icons) */}
-                        <div className="flex items-center justify-between p-4 border-t border-gray-700">
+                    {/* Footer */}
+                    <div className="p-4 border-t border-gray-700 bg-gray-800">
+                        <div className="flex items-center justify-between">
                             <button className="hover:text-gray-400">⚙️</button>
-                            <div className="relative">
-                                <button className="hover:text-gray-400">👤</button>
-                                {users.map(user => {
-                                    const token = localStorage.getItem('token');
-                                    if (!token) return null;
-                                    const currentUserId = jwtDecode<JWTPayload>(token).userId.toString();
-                                    if (user.id === currentUserId) {
-                                        return (
-                                            <UserStatus 
-                                                key={user.id}
-                                                status={user.presence_status || 'offline'} 
-                                                customStatus={user.custom_status}
-                                                className="absolute bottom-0 right-0"
-                                            />
-                                        );
-                                    }
-                                    return null;
-                                })}
+                            <div className="flex items-center gap-2">
+                                <div className="relative">
+                                    <button 
+                                        className="hover:text-gray-400"
+                                        onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                                    >
+                                        👤
+                                    </button>
+                                    {users.map(user => {
+                                        const token = localStorage.getItem('token');
+                                        if (!token) return null;
+                                        const currentUserId = jwtDecode<JWTPayload>(token).userId.toString();
+                                        if (user.id === currentUserId) {
+                                            return (
+                                                <UserStatus 
+                                                    key={user.id}
+                                                    status={user.presence_status || 'offline'} 
+                                                    customStatus={user.custom_status}
+                                                    className="absolute bottom-0 right-0"
+                                                />
+                                            );
+                                        }
+                                        return null;
+                                    })}
+                                </div>
+                                <ProfileMenu wsRef={wsRef} isOpen={isProfileMenuOpen} setIsOpen={setIsProfileMenuOpen} />
                             </div>
                         </div>
                     </div>
-
-                    {/* Messages/Search Area */}
-                    <div className="flex-1">
-                        {selectedChannelId && (
-                            <Messages 
-                                channelId={selectedChannelId}
-                                channelName={
-                                    selectedChannelId === SEARCH_CHANNEL_ID 
-                                        ? `Search Results: "${searchParams.get('q')}"` 
-                                        : isDM 
-                                            ? users.find(u => String(u.id) === String(selectedUserId))?.display_name ?? 
-                                              users.find(u => String(u.id) === String(selectedUserId))?.email
-                                            : channels.find(c => String(c.id) === String(selectedChannelId))?.name
-                                }
-                                isDM={isDM}
-                                messages={messages}
-                                onSendMessage={sendMessage}
-                                isSearchResults={selectedChannelId === SEARCH_CHANNEL_ID}
-                                channels={channels}
-                                users={users}
-                                onMessageClick={handleMessageClick}
-                                onFileUpload={handleFileUpload}
-                                onTyping={handleTyping}
-                            />
-                        )}
-                    </div>
                 </div>
+
+                {/* Messages/Search Area */}
+                <div className="flex-1">
+                    {selectedChannelId && (
+                        <Messages 
+                            channelId={selectedChannelId}
+                            channelName={
+                                selectedChannelId === SEARCH_CHANNEL_ID 
+                                    ? `Search Results: "${searchParams.get('q')}"` 
+                                    : isDM 
+                                        ? users.find(u => String(u.id) === String(selectedUserId))?.display_name ?? 
+                                          users.find(u => String(u.id) === String(selectedUserId))?.email
+                                        : channels.find(c => String(c.id) === String(selectedChannelId))?.name
+                            }
+                            isDM={isDM}
+                            messages={messages}
+                            onSendMessage={sendMessage}
+                            isSearchResults={selectedChannelId === SEARCH_CHANNEL_ID}
+                            channels={channels}
+                            users={users}
+                            onMessageClick={handleMessageClick}
+                            onFileUpload={handleFileUpload}
+                            onTyping={handleTyping}
+                        />
+                    )}
+                </div>
+            </div>
         </div>
     );
 };

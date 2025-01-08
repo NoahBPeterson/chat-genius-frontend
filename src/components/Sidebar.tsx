@@ -81,46 +81,21 @@ const Sidebar: React.FC<SidebarProps> = ({
                                             className="absolute bottom-0 right-0"
                                         />
                                     </div>
-                                    <span className="truncate">
-                                        {user.display_name || user.email}
-                                    </span>
+                                    <div className="flex flex-col">
+                                        <span className="truncate">
+                                            {user.display_name || user.email}
+                                        </span>
+                                        {user.custom_status && (
+                                            <span className="text-sm text-gray-400 truncate">
+                                                {user.custom_status}
+                                            </span>
+                                        )}
+                                    </div>
                                 </button>
                             </li>
                         ));
                     })()}
                 </ul>
-            </div>
-            <div className="flex items-center justify-between p-4 border-t border-gray-700">
-                <button className="hover:text-gray-400">⚙️</button>
-                <div className="relative group">
-                    <button 
-                        className="hover:text-gray-400"
-                        onClick={() => setShowStatusInput(!showStatusInput)}
-                    >
-                        👤
-                    </button>
-                    {showStatusInput && (
-                        <div className="absolute bottom-full right-0 mb-2 bg-gray-700 p-2 rounded shadow-lg">
-                            <input
-                                type="text"
-                                value={customStatus}
-                                onChange={(e) => setCustomStatus(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                        wsRef.current?.send(JSON.stringify({
-                                            type: 'update_status',
-                                            customStatus: (e.target as HTMLInputElement).value,
-                                            token: localStorage.getItem('token')
-                                        }));
-                                        setShowStatusInput(false);
-                                    }
-                                }}
-                                placeholder="Set status..."
-                                className="bg-gray-600 text-white p-1 rounded"
-                            />
-                        </div>
-                    )}
-                </div>
             </div>
         </>
     );
