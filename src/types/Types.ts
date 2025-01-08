@@ -19,6 +19,11 @@ export interface User {
     id: string;
     display_name: string;
     email: string;
+    presence_status: 'online' | 'idle' | 'offline';
+    custom_status?: string;
+    is_typing?: { 
+        [channelId: string]: boolean 
+    };
 }
 
 export interface Channel {

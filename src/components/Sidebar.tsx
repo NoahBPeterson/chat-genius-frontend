@@ -1,7 +1,8 @@
 import { jwtDecode } from 'jwt-decode';
-import React from 'react';
+import React, { useState } from 'react';
 import { User, JWTPayload } from '../types/Types';
 import { useNavigate } from 'react-router-dom';
+import UserStatus from './UserStatus';
 
 interface SidebarProps {
     channels: any[];
@@ -9,6 +10,7 @@ interface SidebarProps {
     onChannelSelect: (channelId: string) => void;
     onUserSelect: (userId: string) => void;
     setIsDM: (isDM: boolean) => void;
+    wsRef: React.RefObject<WebSocket>;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -16,9 +18,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     users, 
     onChannelSelect, 
     onUserSelect,
-    setIsDM 
+    setIsDM,
+    wsRef
 }) => {
     const navigate = useNavigate();
+    const [showStatusInput, setShowStatusInput] = useState(false);
+    const [customStatus, setCustomStatus] = useState('');
+
     const handleChannelClick = (channelId: string) => {
         setIsDM(false);
         onChannelSelect(channelId);
@@ -60,23 +66,61 @@ const Sidebar: React.FC<SidebarProps> = ({
                             return null;
                         }
                         const currentUserId = jwtDecode<JWTPayload>(token)?.userId;
-                        console.log('Current user ID:', currentUserId);
-                        console.log('All users:', users.map(u => ({ id: u.id, name: u.display_name })));
                         return users.filter(user => {
                             return Number(user.id) !== currentUserId;
                         }).map(user => (
                             <li key={user.id}>
                                 <button 
                                     onClick={() => onUserSelect(user.id)}
-                                    className="w-full text-left px-2 py-1 hover:bg-purple-700 rounded flex items-center"
+                                    className="flex items-center gap-2 px-4 py-2 w-full text-left hover:bg-purple-700 transition-colors"
                                 >
-                                    <span className="mr-2">👤</span>
-                                    {user?.display_name ?? user?.email ?? "Unknown User"}
+                                    <div className="relative">
+                                        👤
+                                        <UserStatus 
+                                            status={user.presence_status || 'offline'} 
+                                            className="absolute bottom-0 right-0"
+                                        />
+                                    </div>
+                                    <span className="truncate">
+                                        {user.display_name || user.email}
+                                    </span>
                                 </button>
                             </li>
                         ));
                     })()}
                 </ul>
+            </div>
+            <div className="flex items-center justify-between p-4 border-t border-gray-700">
+                <button className="hover:text-gray-400">⚙️</button>
+                <div className="relative group">
+                    <button 
+                        className="hover:text-gray-400"
+                        onClick={() => setShowStatusInput(!showStatusInput)}
+                    >
+                        👤
+                    </button>
+                    {showStatusInput && (
+                        <div className="absolute bottom-full right-0 mb-2 bg-gray-700 p-2 rounded shadow-lg">
+                            <input
+                                type="text"
+                                value={customStatus}
+                                onChange={(e) => setCustomStatus(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        wsRef.current?.send(JSON.stringify({
+                                            type: 'update_status',
+                                            customStatus: (e.target as HTMLInputElement).value,
+                                            token: localStorage.getItem('token')
+                                        }));
+                                        setShowStatusInput(false);
+                                    }
+                                }}
+                                placeholder="Set status..."
+                                className="bg-gray-600 text-white p-1 rounded"
+                            />
+                        </div>
+                    )}
+                </div>
             </div>
         </>
     );

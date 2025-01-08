@@ -4,15 +4,11 @@ import Sidebar from './Sidebar';
 import Messages from './Messages';
 import API_Client, { hasValidToken } from '../API_Client';
 import { jwtDecode } from "jwt-decode";
-import { Message, JWTPayload } from '../types/Types';
+import { Message, JWTPayload, User, Channel } from '../types/Types';
 import SearchBar from './SearchBar';
 import SearchResults from './SearchResults';
-
-interface User {
-    id: string;
-    display_name: string;
-    email: string;
-}
+import ProfileMenu from './ProfileMenu';
+import UserStatus from './UserStatus';
 
 // Add a special channel ID for search results
 const SEARCH_CHANNEL_ID = 'search-results';
@@ -92,23 +88,34 @@ const MainPage: React.FC = () => {
 
             wsRef.current = new WebSocket('ws://localhost:8080');
             
+            const requestPresenceStatus = () => {
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({
+                        type: 'get_presence',
+                        token: localStorage.getItem('token')
+                    }));
+                }
+            };
+
             wsRef.current.onopen = () => {
-                console.log('WebSocket Connected');
+                if (wsRef.current) {
+                    wsRef.current.send(JSON.stringify({
+                        type: 'authenticate',
+                        token: localStorage.getItem('token')
+                    }));
+                    
+                    setTimeout(requestPresenceStatus, 500);
+                }
             };
 
             wsRef.current.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                console.log('WebSocket received:', data);
 
                 switch (data.type) {
+                    case 'auth_success':
+                        requestPresenceStatus();
+                        break;
                     case 'new_message':
-                        /*
-                        console.log("new_message: ", {
-                            messageChannelId: data.message.channel_id,
-                            currentChannelId: selectedChannelId,
-                            isCurrentChannel: data.message.channel_id === selectedChannelId
-                        });*/
-                        
                         if (data.message.channel_id === selectedChannelId) {
                             setMessages(prev => {
                                 const messageExists = prev.some(msg => 
@@ -122,8 +129,69 @@ const MainPage: React.FC = () => {
                             });
                         }
                         break;
+                    case 'presence_update':
+                        setUsers(prevUsers => {
+                            const updatedUsers = prevUsers.map(user => {
+                                if (user.id === data.userId) {
+                                    return { 
+                                        ...user, 
+                                        presence_status: data.status,
+                                        custom_status: data.customStatus 
+                                    };
+                                }
+                                return user;
+                            });
+                            return updatedUsers;
+                        });
+                        break;
+                    case 'typing_update':
+                        setUsers(prevUsers =>
+                            prevUsers.map(user =>
+                                user.id === data.userId
+                                    ? {
+                                        ...user,
+                                        is_typing: {
+                                            ...user.is_typing,
+                                            [data.channelId]: data.isTyping
+                                        }
+                                    }
+                                    : user
+                            )
+                        );
+                        break;
                     case 'user_update':
                         setUsers(data.users);
+                        break;
+                    case 'presence_list':
+                        setUsers(prevUsers => {
+                            const updatedUsers = prevUsers.map(user => {
+                                const presence = data.presences.find((p: any) => p.userId === user.id);
+                                if (presence) {
+                                    return {
+                                        ...user,
+                                        presence_status: presence.status,
+                                        custom_status: presence.customStatus
+                                    };
+                                }
+                                return user;
+                            });
+                            return updatedUsers;
+                        });
+                        break;
+                    case 'bulk_presence_update':
+                        setUsers(prevUsers => {
+                            const updatedUsers = prevUsers.map(user => {
+                                const presence = data.presenceData.find((p: any) => p.id === user.id);
+                                if (presence) {
+                                    return {
+                                        ...user,
+                                        presence_status: presence.presence_status
+                                    };
+                                }
+                                return user;
+                            });
+                            return updatedUsers;
+                        });
                         break;
                     default:
                         console.log('Unknown message type:', data);
@@ -135,7 +203,12 @@ const MainPage: React.FC = () => {
             };
 
             wsRef.current.onclose = () => {
-                console.log('WebSocket disconnected. Attempting to reconnect...');
+                setUsers(prevUsers => 
+                    prevUsers.map(user => ({
+                        ...user,
+                        presence_status: 'offline'
+                    }))
+                );
                 setTimeout(connectWebSocket, 1000);
             };
         };
@@ -288,79 +361,111 @@ const MainPage: React.FC = () => {
             }));
         }
     };
-    console.log("users", users);
-    console.log("both", (users.find(u => u.id === selectedChannelId)?.display_name ?? users.find(u => u.id === selectedChannelId)?.email));
+
+    // Add typing indicator function
+    const handleTyping = (isTyping: boolean) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+                type: 'typing_update',
+                channelId: selectedChannelId,
+                isTyping,
+                token: localStorage.getItem('token')
+            }));
+        }
+    };
 
     return (
-    <div className="flex h-screen w-screen">
-        {/* Sidebar */}
-        <div className="w-1/5 min-w-[250px] bg-gray-800 text-white flex flex-col justify-between flex-shrink-0">
-            <SearchBar onSearch={handleSearch} />
-            
-            {/* Admin Controls */}
-            {userRole === 'admin' && (
-                    <div className="p-4 border-b border-gray-700">
-                        <button
-                            onClick={() => setIsInputVisible(!isInputVisible)}
-                            className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded w-full"
-                        >
-                            {isInputVisible ? 'Cancel' : 'New Channel'}
-                        </button>
-                        {isInputVisible && (
-                            <div className="mt-4">
-                                <input
-                                    type="text"
-                                    value={newChannelName}
-                                    onChange={(e) => setNewChannelName(e.target.value)}
-                                    onKeyUp={handleKeyPress}
-                                    placeholder="New Channel Name"
-                                    className="w-full p-2 border rounded text-black"
-                                />
+        <div className="flex h-screen">
+            <div className="flex h-screen w-screen">
+                {/* Sidebar */}
+                <div className="w-1/5 min-w-[250px] bg-gray-800 text-white flex flex-col justify-between flex-shrink-0">
+                    <SearchBar onSearch={handleSearch} />
+                    
+                    {/* Admin Controls */}
+                    {userRole === 'admin' && (
+                            <div className="p-4 border-b border-gray-700">
+                                <button
+                                    onClick={() => setIsInputVisible(!isInputVisible)}
+                                    className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded w-full"
+                                >
+                                    {isInputVisible ? 'Cancel' : 'New Channel'}
+                                </button>
+                                {isInputVisible && (
+                                    <div className="mt-4">
+                                        <input
+                                            type="text"
+                                            value={newChannelName}
+                                            onChange={(e) => setNewChannelName(e.target.value)}
+                                            onKeyUp={handleKeyPress}
+                                            placeholder="New Channel Name"
+                                            className="w-full p-2 border rounded text-black"
+                                        />
+                                    </div>
+                                )}
                             </div>
                         )}
+
+                        {/* Sidebar Content */}
+                        <Sidebar
+                            channels={channels}
+                            users={users}
+                            onChannelSelect={handleChannelSelect}
+                            onUserSelect={handleUserSelect}
+                            setIsDM={setIsDM}
+                            wsRef={wsRef}
+                        />
+
+                        {/* Footer (Settings/Profile Icons) */}
+                        <div className="flex items-center justify-between p-4 border-t border-gray-700">
+                            <button className="hover:text-gray-400">⚙️</button>
+                            <div className="relative">
+                                <button className="hover:text-gray-400">👤</button>
+                                {users.map(user => {
+                                    const token = localStorage.getItem('token');
+                                    if (!token) return null;
+                                    const currentUserId = jwtDecode<JWTPayload>(token).userId.toString();
+                                    if (user.id === currentUserId) {
+                                        return (
+                                            <UserStatus 
+                                                key={user.id}
+                                                status={user.presence_status || 'offline'} 
+                                                customStatus={user.custom_status}
+                                                className="absolute bottom-0 right-0"
+                                            />
+                                        );
+                                    }
+                                    return null;
+                                })}
+                            </div>
+                        </div>
                     </div>
-                )}
 
-                {/* Sidebar Content */}
-                <Sidebar
-                    channels={channels}
-                    users={users}
-                    onChannelSelect={handleChannelSelect}
-                    onUserSelect={handleUserSelect}
-                    setIsDM={setIsDM}
-                />
-
-                {/* Footer (Settings/Profile Icons) */}
-                <div className="flex items-center justify-between p-4 border-t border-gray-700">
-                    <button className="hover:text-gray-400">⚙️</button>
-                    <button className="hover:text-gray-400">👤</button>
+                    {/* Messages/Search Area */}
+                    <div className="flex-1">
+                        {selectedChannelId && (
+                            <Messages 
+                                channelId={selectedChannelId}
+                                channelName={
+                                    selectedChannelId === SEARCH_CHANNEL_ID 
+                                        ? `Search Results: "${searchParams.get('q')}"` 
+                                        : isDM 
+                                            ? users.find(u => String(u.id) === String(selectedUserId))?.display_name ?? 
+                                              users.find(u => String(u.id) === String(selectedUserId))?.email
+                                            : channels.find(c => String(c.id) === String(selectedChannelId))?.name
+                                }
+                                isDM={isDM}
+                                messages={messages}
+                                onSendMessage={sendMessage}
+                                isSearchResults={selectedChannelId === SEARCH_CHANNEL_ID}
+                                channels={channels}
+                                users={users}
+                                onMessageClick={handleMessageClick}
+                                onFileUpload={handleFileUpload}
+                                onTyping={handleTyping}
+                            />
+                        )}
+                    </div>
                 </div>
-            </div>
-
-            {/* Messages/Search Area */}
-            <div className="flex-1">
-                {selectedChannelId && (
-                    <Messages 
-                        channelId={selectedChannelId}
-                        channelName={
-                            selectedChannelId === SEARCH_CHANNEL_ID 
-                                ? `Search Results: "${searchParams.get('q')}"` 
-                                : isDM 
-                                    ? users.find(u => String(u.id) === String(selectedUserId))?.display_name ?? 
-                                      users.find(u => String(u.id) === String(selectedUserId))?.email
-                                    : channels.find(c => String(c.id) === String(selectedChannelId))?.name
-                        }
-                        isDM={isDM}
-                        messages={messages}
-                        onSendMessage={sendMessage}
-                        isSearchResults={selectedChannelId === SEARCH_CHANNEL_ID}
-                        channels={channels}
-                        users={users}
-                        onMessageClick={handleMessageClick}
-                        onFileUpload={handleFileUpload}
-                    />
-                )}
-            </div>
         </div>
     );
 };

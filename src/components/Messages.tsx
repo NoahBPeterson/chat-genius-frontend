@@ -16,6 +16,7 @@ interface MessagesProps {
     users?: User[];
     onMessageClick?: (channelId: string, messageId: string) => void;
     onFileUpload: (storagePath: string, filename: string, size: number, mimeType: string) => void;
+    onTyping: (isTyping: boolean) => void;
 }
 
 const MessageContent: React.FC<{ content: string }> = ({ content }) => {
@@ -71,12 +72,14 @@ const Messages: React.FC<MessagesProps> = ({
     channels = [],
     users = [],
     onMessageClick,
-    onFileUpload
+    onFileUpload,
+    onTyping
 }) => {
     const [newMessage, setNewMessage] = useState<string>('');
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const highlightedMessageId = useRef<string | null>(null);
+    const typingTimeoutRef = useRef<NodeJS.Timeout>();
 
     const scrollToBottom = () => {
         if (highlightedMessageId.current) return;
@@ -147,6 +150,23 @@ const Messages: React.FC<MessagesProps> = ({
         return channel.name;
     };
 
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setNewMessage(e.target.value);
+        
+        // Clear existing timeout
+        if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+        }
+
+        // Send typing started
+        onTyping(true);
+
+        // Set timeout to stop typing indicator
+        typingTimeoutRef.current = setTimeout(() => {
+            onTyping(false);
+        }, 1000);
+    };
+
     return (
         <div className="flex flex-col h-screen w-full">
             <div className="sticky top-0 z-10 p-4 bg-purple-700">
@@ -206,6 +226,13 @@ const Messages: React.FC<MessagesProps> = ({
                     ))}
                     <div ref={messagesEndRef} />
                 </ul>
+                {users.map(user => 
+                    user.is_typing?.[channelId] && (
+                        <div key={`typing-${user.id}`} className="text-sm text-gray-400 italic">
+                            {user.display_name} is typing...
+                        </div>
+                    )
+                )}
             </div>
 
             {!isSearchResults && (
@@ -215,7 +242,7 @@ const Messages: React.FC<MessagesProps> = ({
                         <input
                             type="text"
                             value={newMessage}
-                            onChange={(e) => setNewMessage(e.target.value)}
+                            onChange={handleInputChange}
                             onKeyDown={(e) => {
                                 if (e.key === 'Enter' && !e.repeat) {
                                     e.preventDefault();
