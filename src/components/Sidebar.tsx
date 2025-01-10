@@ -40,7 +40,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                             <li key={channel.id}>
                                 <button 
                                     onClick={() => {
-                                        console.log('Clicking channel:', channel.id);
                                         handleChannelClick(channel.id);
                                     }}
                                     className="w-full text-left px-2 py-1 hover:bg-purple-700 rounded"

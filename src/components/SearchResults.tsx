@@ -32,7 +32,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({ messages, channelName }) 
                                         {message.display_name}
                                     </span>
                                     <span className="text-xs text-purple-400">
-                                        {new Date(message.timestamp).toLocaleTimeString()}
+                                        {new Date(message.created_at).toLocaleTimeString()}
                                     </span>
                                 </div>
                                 <div className="mt-1 break-all whitespace-pre-wrap">

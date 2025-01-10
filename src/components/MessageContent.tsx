@@ -1,51 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import API_Client from '../API_Client';
+import React from 'react';
+import { Message } from '../types/Types';
+import MessageReactions from './MessageReactions';
 
 interface MessageContentProps {
-    content: string;
+    message: Message;
+    wsRef: React.RefObject<WebSocket>;
 }
 
-const MessageContent: React.FC<MessageContentProps> = ({ content }) => {
-    const [fileUrl, setFileUrl] = useState<string | null>(null);
-    const fileMatch = content.match(/\[File: (.*?)\]\((.*?)\)/);
-
-    useEffect(() => {
-        const fetchFileUrl = async () => {
-            if (fileMatch) {
-                try {
-                    const response = await API_Client.get(`/api/files/${fileMatch[2]}`);
-                    setFileUrl(response.data.downloadUrl);
-                } catch (error) {
-                    console.error('Error fetching file URL:', error);
-                }
-            }
-        };
-
-        fetchFileUrl();
-    }, [content]);
-
-    if (fileMatch) {
-        const [, filename] = fileMatch;
-        const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(filename);
-        return isImage && fileUrl ? (
-            <img 
-                src={fileUrl}
-                alt={filename}
-                className="max-w-md max-h-60 rounded-lg cursor-pointer hover:opacity-90"
+const MessageContent: React.FC<MessageContentProps> = ({ message, wsRef }) => {
+    if (!message) return null;
+    
+    return (
+        <div className="flex flex-col">
+            <span>{message.content}</span>
+            {message.attachments && message.attachments.length > 0 && (
+                <div className="mt-2">
+                    {message.attachments.map((attachment, index) => (
+                        <div key={index} className="text-blue-500 hover:underline">
+                            <a href={attachment.storage_path} target="_blank" rel="noopener noreferrer">
+                                {attachment.filename}
+                            </a>
+                        </div>
+                    ))}
+                </div>
+            )}
+            <MessageReactions
+                messageId={message.id}
+                reactions={message.reactions || {}}
+                wsRef={wsRef}
             />
-        ) : (
-            <a 
-                href={fileUrl || '#'}
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-blue-300 hover:text-blue-200 underline"
-            >
-                📎 {filename}
-            </a>
-        );
-    }
-
-    return <span>{content}</span>;
+        </div>
+    );
 };
 
 export default MessageContent; 

@@ -29,10 +29,6 @@ const MainPage: React.FC = () => {
 
     const fetchChannels = async () => {
         try {
-            if (!hasValidToken()) {
-                navigate('/login');
-                return;
-            }
             const response = await API_Client.get('/api/channels');
             if (response.status === 200) {
                 setChannels(response.data);
@@ -50,10 +46,6 @@ const MainPage: React.FC = () => {
 
     const fetchUsers = async () => {
         try {
-            if (!hasValidToken()) {
-                navigate('/login');
-                return;
-            }
             const response = await API_Client.get('/api/users');
             if (response.status === 200) {
                 setUsers(response.data);
@@ -117,6 +109,12 @@ const MainPage: React.FC = () => {
             wsRef.current.onmessage = (event) => {
                 const data = JSON.parse(event.data);
 
+                if (data.type === 'error' && data.message === 'TokenExpiredError') {
+                    localStorage.removeItem('token');
+                    navigate('/login');
+                    return;
+                }
+
                 switch (data.type) {
                     case 'auth_success':
                         requestPresenceStatus();
@@ -129,15 +127,11 @@ const MainPage: React.FC = () => {
                         }
                         break;
                     case 'new_message':
-                        console.log('Received new message:', data.message, 'Selected channel:', selectedChannelId);
                         // Don't add messages for search results view
                         if (selectedChannelId !== SEARCH_CHANNEL_ID && 
-                            String(data.message.channel_id) === String(selectedChannelId)) {
+                            Number(data.message.channel_id) === Number(selectedChannelId)) {
                             setMessages(prev => {
-                                const messageExists = prev.some(msg => 
-                                    String(msg.id) === String(data.message.id) && 
-                                    String(msg.channel_id) === String(data.message.channel_id)
-                                );
+                                const messageExists = prev.some(msg => msg.id === data.message.id);
                                 if (messageExists) {
                                     return prev;
                                 }
@@ -267,24 +261,35 @@ const MainPage: React.FC = () => {
                             );
                         }
                         break;
-                    case 'thread_message':
-                        // Update the parent message's thread info regardless of selected channel
+                        case 'thread_message':
+                            // Update the parent message's thread info regardless of selected channel
+                            setMessages(prev => prev.map(msg => {
+                                if (msg.id === data.thread.parent_message_id && msg.thread) {
+                                    return {
+                                        ...msg,
+                                        has_thread: true,
+                                        thread: {
+                                            id: msg.thread.id,
+                                            channel_id: msg.thread.channel_id,
+                                            parent_message_id: msg.thread.parent_message_id,
+                                            created_at: msg.thread.created_at,
+                                            last_reply_at: data.message.created_at,
+                                            thread_starter_content: msg.thread.thread_starter_content,
+                                            thread_starter_name: msg.thread.thread_starter_name,
+                                            thread_starter_id: msg.thread.thread_starter_id,
+                                            reply_count: data.thread.reply_count
+                                        }
+                                    };
+                                }
+                                return msg;
+                            }));
+                            break;
+                    case 'reaction_update':
                         setMessages(prev => prev.map(msg => {
-                            if (msg.id === data.thread.parent_message_id && msg.thread) {
+                            if (msg.id === data.messageId) {
                                 return {
                                     ...msg,
-                                    has_thread: true,
-                                    thread: {
-                                        id: msg.thread.id,
-                                        channel_id: msg.thread.channel_id,
-                                        parent_message_id: msg.thread.parent_message_id,
-                                        created_at: msg.thread.created_at,
-                                        last_reply_at: data.message.created_at,
-                                        thread_starter_content: msg.thread.thread_starter_content,
-                                        thread_starter_name: msg.thread.thread_starter_name,
-                                        thread_starter_id: msg.thread.thread_starter_id,
-                                        reply_count: data.thread.reply_count
-                                    }
+                                    reactions: data.reactions
                                 };
                             }
                             return msg;
@@ -297,6 +302,10 @@ const MainPage: React.FC = () => {
 
             wsRef.current.onerror = (error) => {
                 console.error('WebSocket error:', error);
+                if (error instanceof Error && error.message.includes('TokenExpiredError')) {
+                    localStorage.removeItem('token');
+                    navigate('/login');
+                }
             };
 
             wsRef.current.onclose = () => {
@@ -359,33 +368,43 @@ const MainPage: React.FC = () => {
     const handleUserSelect = async (userId: string) => {
         try {
             const response = await API_Client.post(`/api/dm/${userId}`);
-            setMessages([]); // Clear messages first
+            
+            const channelId = response.data.id.toString();
+            
+            // Update all state synchronously
+            await Promise.all([
+                new Promise<void>(resolve => {
+                    setMessages([]);
+                    setSelectedChannelId(channelId);
+                    setSelectedUserId(userId);
+                    setIsDM(true);
+                    resolve();
+                })
+            ]);
             
             // Remove search query from URL
             navigate('/', { replace: true });
-            
-            setSelectedChannelId(response.data.id);
-            setSelectedUserId(userId);
-            setIsDM(true);
 
-            await fetchMessages(response.data.id);
+            await fetchMessages(channelId);
         } catch (error) {
             console.error('Error setting up DM:', error);
         }
     };
 
     const handleChannelSelect = async (channelId: string) => {
-        setMessages([]); // Clear messages first
+        // Update all state synchronously
+        await Promise.all([
+            new Promise<void>(resolve => {
+                setMessages([]);
+                setSelectedChannelId(channelId);
+                setSelectedUserId(null);
+                setIsDM(false);
+                resolve();
+            })
+        ]);
         
         // Remove search query from URL
         navigate('/', { replace: true });
-        
-        await new Promise(resolve => {
-            setSelectedChannelId(channelId);
-            setSelectedUserId(null);
-            setIsDM(false);
-            resolve(null);
-        });
         
         await fetchMessages(channelId);
     };
@@ -406,7 +425,6 @@ const MainPage: React.FC = () => {
         try {
             const response = await API_Client.get(`/api/messages/search`, { params: { query: searchQuery } });
             if (response.status === 200) {
-                console.log("Search response:", response.data);
                 setMessages(response.data);
                 setSelectedChannelId(SEARCH_CHANNEL_ID);
                 setIsDM(false);
@@ -448,7 +466,6 @@ const MainPage: React.FC = () => {
                     navigate(`/?message=${threadParentMessageId}&thread_message=${messageId}`, { replace: true });
                     // Find the parent message from the fetched messages
                     const parentMessage = channelMessages.find((m: Message) => String(m.id) === String(threadParentMessageId));
-                    console.log("Found parent message:", parentMessage);
                     if (parentMessage) {
                         const tempThread: Thread = {
                             id: parentMessage.thread?.id || -1,

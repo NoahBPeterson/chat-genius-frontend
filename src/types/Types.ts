@@ -1,15 +1,29 @@
+export interface Attachment {
+    filename: string;
+    mime_type: string;
+    size: number;
+    storage_path: string;
+}
+
 export interface Message {
     id: number;
-    channel_id: number;
-    user_id: number;
     content: string;
-    timestamp: string;
+    user_id: number;
+    channel_id: number;
     created_at: string;
     display_name: string;
+    email: string;
+    has_thread?: boolean;
     thread?: Thread;
     thread_id?: number;
-    is_thread_parent?: boolean;
-    thread_parent_message_id?: number;
+    is_thread_parent: boolean;
+    attachments?: Attachment[];
+    reactions: {
+        [emoji: string]: {
+            count: number;
+            users: string[];
+        };
+    };
 }
 
 export interface JWTPayload {

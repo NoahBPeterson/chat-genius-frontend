@@ -115,13 +115,10 @@ const Messages: React.FC<MessagesProps> = ({
                 }
             }
         } else {
-            const lastMessage = messages[messages.length - 1];
-            // Only scroll if it's a new channel message (not a thread message) and not a thread parent update
-            if (lastMessage && !lastMessage.thread_id && !lastMessage.is_thread_parent) {
-                scrollToBottom();
-            }
+            // Only scroll if there's no specific message to highlight
+            scrollToBottom();
         }
-    }, [messages]);
+    }, [messages, channelId]);
 
     const getChannelName = (channelId: string) => {
         const channel = channels.find(c => c.id == channelId);
@@ -228,7 +225,7 @@ const Messages: React.FC<MessagesProps> = ({
                 >
                     <ul className="space-y-2">
                         {messages
-                            .filter(message => isSearchResults || (!message.thread_id || message.is_thread_parent))
+                            .filter(message => isSearchResults || message.is_thread_parent || message.thread_id == null)
                             .map((message) => (
                             <li
                                 key={message.id}
@@ -240,7 +237,7 @@ const Messages: React.FC<MessagesProps> = ({
                                 <div className="flex flex-col">
                                     {isSearchResults && (
                                         <div className="text-sm text-purple-400 mb-1">
-                                            in {message.thread_id ? 
+                                            in {message.thread?.id ? 
                                                 `Thread in ${channels.find(c => Number(c.id) == message.channel_id)?.is_dm ? 
                                                     `DM: ${getChannelName(message.channel_id.toString())}` : 
                                                     `#${channels.find(c => Number(c.id) == message.channel_id)?.name || 'Unknown Channel'}`}` :
@@ -254,7 +251,7 @@ const Messages: React.FC<MessagesProps> = ({
                                             {message.display_name}
                                         </span>
                                         <span className="text-xs text-gray-400">
-                                            {new Date(message.timestamp).toLocaleTimeString()}
+                                            {new Date(message.created_at).toLocaleTimeString()}
                                         </span>
                                         {!isSearchResults && (
                                             <button
@@ -274,16 +271,16 @@ const Messages: React.FC<MessagesProps> = ({
                                                 onMessageClick(
                                                     message.channel_id.toString(), 
                                                     message.id.toString(),
-                                                    message.thread_parent_message_id?.toString()
+                                                    message.thread?.parent_message_id?.toString()
                                                 );
                                                 // If this is a thread message, we'll create the thread view for the parent message
-                                                if (message.thread_parent_message_id) {
-                                                    handleCreateThread(message.thread_parent_message_id.toString());
+                                                if (message.thread?.parent_message_id) {
+                                                    handleCreateThread(message.thread?.parent_message_id.toString());
                                                 }
                                             }
                                         }}
                                     >
-                                        <MessageContent content={message.content} />
+                                        <MessageContent message={message} wsRef={wsRef} />
                                     </div>
                                 </div>
                             </li>

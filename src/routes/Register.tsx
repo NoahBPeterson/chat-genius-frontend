@@ -12,7 +12,6 @@ const Register: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            console.log(email, password, displayname);
             const response = await API_Client.post('/api/register', { email, password, displayname });
             localStorage.setItem('token', response.data.token);
             navigate('/login'); // Redirect to a default channel

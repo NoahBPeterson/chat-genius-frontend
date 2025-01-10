@@ -57,13 +57,22 @@ const ThreadView: React.FC<ThreadViewProps> = ({
                         }
                         return newMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
                     });
-
                 }
             } else if (data.type === 'thread_created' && data.thread.parent_message_id === thread.parent_message_id) {
                 if (thread.id === -1) {
                     thread.id = data.thread.id;
                     fetchThreadMessages();
                 }
+            } else if (data.type === 'reaction_update') {
+                setThreadMessages(prev => prev.map(msg => {
+                    if (msg.id === data.messageId) {
+                        return {
+                            ...msg,
+                            reactions: data.reactions
+                        };
+                    }
+                    return msg;
+                }));
             }
         };
 
@@ -159,7 +168,7 @@ const ThreadView: React.FC<ThreadViewProps> = ({
                                     </span>
                                 </div>
                                 <div className="mt-1 text-white">
-                                    <MessageContent content={parentMessage.content} />
+                                    <MessageContent message={parentMessage} wsRef={wsRef} />
                                 </div>
                             </div>
                         </div>
@@ -188,7 +197,7 @@ const ThreadView: React.FC<ThreadViewProps> = ({
                                     </span>
                                 </div>
                                 <div className="mt-1 text-white">
-                                    <MessageContent content={message.content} />
+                                    <MessageContent message={message} wsRef={wsRef} />
                                 </div>
                             </div>
                         ))

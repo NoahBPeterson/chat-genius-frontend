@@ -28,15 +28,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUploadComplete }) => {
             });
 
             // 2. Upload to S3
-            const response = await fetch(urlResponse.data.uploadUrl, {
+            await fetch(urlResponse.data.uploadUrl, {
                 method: 'PUT',
                 body: file,
                 headers: {
                     'Content-Type': file.type
                 }
             });
-
-            console.log("fileupload response", response);
 
             // 3. Notify parent component with file info
             onUploadComplete(urlResponse.data.storagePath, uniqueFilename, file.size, file.type);
