@@ -23,9 +23,15 @@ const MainPage: React.FC = () => {
     const [isInputVisible, setIsInputVisible] = useState<boolean>(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const wsRef = useRef<WebSocket | null>(null);
+    const currentChannelRef = useRef<string>("1");
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+
+    // Update the ref whenever selectedChannelId changes
+    useEffect(() => {
+        currentChannelRef.current = selectedChannelId;
+    }, [selectedChannelId]);
 
     const fetchChannels = async () => {
         try {
@@ -127,16 +133,28 @@ const MainPage: React.FC = () => {
                         }
                         break;
                     case 'new_message':
+                        const messageChannelStr = String(data.message.channel_id);
+                        const selectedChannelStr = String(currentChannelRef.current);
+                        console.log('Received new message:', {
+                            messageId: data.message.id,
+                            messageChannelId: messageChannelStr,
+                            selectedChannelId: selectedChannelStr,
+                            match: messageChannelStr === selectedChannelStr
+                        });
                         // Don't add messages for search results view
-                        if (selectedChannelId !== SEARCH_CHANNEL_ID && 
-                            Number(data.message.channel_id) === Number(selectedChannelId)) {
+                        if (currentChannelRef.current !== SEARCH_CHANNEL_ID && 
+                            messageChannelStr === selectedChannelStr) {
+                            console.log('Adding message to state');
                             setMessages(prev => {
                                 const messageExists = prev.some(msg => msg.id === data.message.id);
                                 if (messageExists) {
+                                    console.log('Message already exists');
                                     return prev;
                                 }
                                 return [...prev, data.message];
                             });
+                        } else {
+                            console.log('Skipping message - channel mismatch or search view');
                         }
                         break;
                     case 'presence_update':
@@ -252,7 +270,7 @@ const MainPage: React.FC = () => {
                                             has_thread: true,
                                             thread: {
                                                 ...data.thread,
-                                                reply_count: 0
+                                                reply_count: 1
                                             }
                                         };
                                     }
@@ -264,19 +282,20 @@ const MainPage: React.FC = () => {
                         case 'thread_message':
                             // Update the parent message's thread info regardless of selected channel
                             setMessages(prev => prev.map(msg => {
-                                if (msg.id === data.thread.parent_message_id && msg.thread) {
+                                if (msg.id === data.thread.parent_message_id) {
                                     return {
                                         ...msg,
                                         has_thread: true,
                                         thread: {
-                                            id: msg.thread.id,
-                                            channel_id: msg.thread.channel_id,
-                                            parent_message_id: msg.thread.parent_message_id,
-                                            created_at: msg.thread.created_at,
+                                            ...(msg.thread || {}),
+                                            id: data.thread.id,
+                                            channel_id: data.thread.channel_id,
+                                            parent_message_id: data.thread.parent_message_id,
+                                            created_at: data.thread.created_at,
                                             last_reply_at: data.message.created_at,
-                                            thread_starter_content: msg.thread.thread_starter_content,
-                                            thread_starter_name: msg.thread.thread_starter_name,
-                                            thread_starter_id: msg.thread.thread_starter_id,
+                                            thread_starter_content: msg.content,
+                                            thread_starter_name: msg.display_name,
+                                            thread_starter_id: msg.user_id,
                                             reply_count: data.thread.reply_count
                                         }
                                     };
@@ -368,40 +387,46 @@ const MainPage: React.FC = () => {
     const handleUserSelect = async (userId: string) => {
         try {
             const response = await API_Client.post(`/api/dm/${userId}`);
-            
             const channelId = response.data.id.toString();
             
-            // Update all state synchronously
-            await Promise.all([
-                new Promise<void>(resolve => {
-                    setMessages([]);
-                    setSelectedChannelId(channelId);
-                    setSelectedUserId(userId);
-                    setIsDM(true);
-                    resolve();
-                })
-            ]);
+            // Update the ref immediately
+            currentChannelRef.current = channelId;
+            
+            // Clear messages first
+            setMessages([]);
+            
+            // Update channel selection state
+            setSelectedChannelId(channelId);
+            setSelectedUserId(userId);
+            setIsDM(true);
             
             // Remove search query from URL
             navigate('/', { replace: true });
 
+            // Fetch messages for the new channel
             await fetchMessages(channelId);
+            
+            console.log('DM channel selected:', {
+                channelId,
+                userId,
+                isDM: true
+            });
         } catch (error) {
             console.error('Error setting up DM:', error);
         }
     };
 
     const handleChannelSelect = async (channelId: string) => {
-        // Update all state synchronously
-        await Promise.all([
-            new Promise<void>(resolve => {
-                setMessages([]);
-                setSelectedChannelId(channelId);
-                setSelectedUserId(null);
-                setIsDM(false);
-                resolve();
-            })
-        ]);
+        // Update ref immediately
+        currentChannelRef.current = channelId;
+        
+        // Clear messages first
+        setMessages([]);
+        
+        // Update channel selection state
+        setSelectedChannelId(channelId);
+        setSelectedUserId(null);
+        setIsDM(false);
         
         // Remove search query from URL
         navigate('/', { replace: true });

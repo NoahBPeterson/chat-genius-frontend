@@ -22,11 +22,14 @@ const MessageReactions: React.FC<MessageReactionsProps> = ({ messageId, reaction
     const handleReactionClick = (emoji: string) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
-        const hasReacted = reactions[emoji]?.users.includes(currentUserId);
-        const messageType = hasReacted ? 'remove_reaction' : 'add_reaction';
+        console.log('Sending reaction update:', {
+            messageId,
+            emoji,
+            currentUserId
+        });
 
         wsRef.current.send(JSON.stringify({
-            type: messageType,
+            type: 'update_reaction',
             messageId,
             emoji,
             token: localStorage.getItem('token')
@@ -42,10 +45,10 @@ const MessageReactions: React.FC<MessageReactionsProps> = ({ messageId, reaction
                     <button
                         key={emoji}
                         onClick={() => handleReactionClick(emoji)}
-                        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs rounded-full border 
+                        className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs rounded-full border transition-colors duration-150
                             ${data.users.includes(currentUserId) 
-                                ? 'bg-purple-100 border-purple-300 text-purple-700' 
-                                : 'bg-gray-800 border-gray-500 text-white-700 hover:bg-gray-700'}`}
+                                ? 'bg-purple-500 border-purple-400 text-white hover:bg-purple-600' 
+                                : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'}`}
                         title={`${data.count} ${data.count === 1 ? 'reaction' : 'reactions'}`}
                     >
                         <span>{emoji}</span>
