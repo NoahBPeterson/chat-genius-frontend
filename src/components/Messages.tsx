@@ -194,7 +194,7 @@ const Messages: React.FC<MessagesProps> = ({
                 last_reply_at: message.thread?.last_reply_at || message.created_at,
                 thread_starter_content: message.content,
                 thread_starter_name: message.display_name,
-                thread_starter_id: message.user_id,
+                thread_starter_id: Number(message.user_id),
                 reply_count: message.thread?.reply_count || 0
             };
             setSelectedThread(tempThread);
@@ -271,12 +271,8 @@ const Messages: React.FC<MessagesProps> = ({
                                                 onMessageClick(
                                                     message.channel_id.toString(), 
                                                     message.id.toString(),
-                                                    message.thread?.parent_message_id?.toString()
+                                                    message.thread_parent_message_id?.toString()
                                                 );
-                                                // If this is a thread message, we'll create the thread view for the parent message
-                                                if (message.thread?.parent_message_id) {
-                                                    handleCreateThread(message.thread?.parent_message_id.toString());
-                                                }
                                             }
                                         }}
                                     >

@@ -485,17 +485,56 @@ const MainPage: React.FC = () => {
                 const channelMessages = response.data;
                 setMessages(channelMessages);
                 
-                // If this is a thread message, navigate to its parent message and open the thread
-                if (threadParentMessageId) {
+                // If this is a thread message or has a parent message ID, navigate to its parent message and open the thread
+                const clickedMessage = channelMessages.find((m: Message) => String(m.id) === String(messageId));
+                console.log('Full message details:', {
+                    messageId,
+                    threadParentMessageId,
+                    clickedMessage,
+                    channelMessages: channelMessages.map((m: Message) => m.id),
+                    isMessageInChannel: channelMessages.some((m: Message) => String(m.id) === String(messageId))
+                });
+                
+                // A message is a thread message if:
+                // 1. It has a thread_id (it's a reply in a thread)
+                // 2. It was passed a threadParentMessageId (from search results)
+                // 3. It has a thread_parent_message_id (from search results)
+                // 4. It's not found in the main channel messages (it must be a thread message)
+                const isThreadMessage = clickedMessage?.thread_id !== undefined || 
+                                     threadParentMessageId !== undefined ||
+                                     clickedMessage?.thread_parent_message_id !== undefined ||
+                                     !channelMessages.some((m: Message) => String(m.id) === String(messageId));
+                
+                // Get the parent message ID from either:
+                // 1. The passed threadParentMessageId
+                // 2. The clicked message's thread_parent_message_id (from search results)
+                const parentMessageId = threadParentMessageId || 
+                                      clickedMessage?.thread_parent_message_id || 
+                                      clickedMessage?.thread_id;
+                
+                console.log('Thread info:', {
+                    isThreadMessage,
+                    parentMessageId,
+                    channelId,
+                    messageParentId: clickedMessage?.thread_parent_message_id
+                });
+                
+                if (isThreadMessage && parentMessageId) {
+                    console.log('Opening thread with:', {
+                        parentMessageId,
+                        messageId
+                    });
                     // Include both parent and thread message IDs in the URL
-                    navigate(`/?message=${threadParentMessageId}&thread_message=${messageId}`, { replace: true });
+                    navigate(`/?message=${parentMessageId}&thread_message=${messageId}`, { replace: true });
                     // Find the parent message from the fetched messages
-                    const parentMessage = channelMessages.find((m: Message) => String(m.id) === String(threadParentMessageId));
+                    const parentMessage = channelMessages.find((m: Message) => String(m.id) === String(parentMessageId));
+                    console.log('Found parent message:', parentMessage);
+                    
                     if (parentMessage) {
                         const tempThread: Thread = {
                             id: parentMessage.thread?.id || -1,
                             channel_id: Number(channelId),
-                            parent_message_id: Number(threadParentMessageId),
+                            parent_message_id: Number(parentMessageId),
                             created_at: parentMessage.created_at,
                             last_reply_at: parentMessage.thread?.last_reply_at || parentMessage.created_at,
                             thread_starter_content: parentMessage.content,
@@ -503,14 +542,18 @@ const MainPage: React.FC = () => {
                             thread_starter_id: parentMessage.user_id,
                             reply_count: parentMessage.thread?.reply_count || 0
                         };
+                        console.log('Created temp thread:', tempThread);
                         // Send a message to open the thread
                         wsRef.current?.send(JSON.stringify({
                             type: 'thread_created',
                             thread: tempThread,
                             token: localStorage.getItem('token')
                         }));
+                    } else {
+                        console.log('Parent message not found in channel messages');
                     }
                 } else {
+                    console.log('Not a thread message, navigating to:', messageId);
                     navigate(`/?message=${messageId}`, { replace: true });
                 }
             }

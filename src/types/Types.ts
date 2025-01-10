@@ -7,23 +7,34 @@ export interface Attachment {
 
 export interface Message {
     id: number;
-    content: string;
-    user_id: number;
     channel_id: number;
+    user_id: string;
+    content: string;
     created_at: string;
+    timestamp: string;
     display_name: string;
-    email: string;
-    has_thread?: boolean;
-    thread?: Thread;
     thread_id?: number;
-    is_thread_parent: boolean;
-    attachments?: Attachment[];
+    thread_parent_message_id?: number;
+    thread?: {
+        id: number;
+        channel_id: number;
+        parent_message_id: number;
+        created_at: string;
+        last_reply_at: string;
+        thread_starter_content: string;
+        thread_starter_name: string;
+        thread_starter_id: string;
+        reply_count: number;
+    };
+    has_thread?: boolean;
+    is_thread_parent?: boolean;
     reactions: {
         [emoji: string]: {
             count: number;
             users: string[];
         };
     };
+    attachments?: Attachment[];
 }
 
 export interface JWTPayload {

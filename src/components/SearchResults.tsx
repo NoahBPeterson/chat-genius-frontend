@@ -11,6 +11,8 @@ const SearchResults: React.FC<SearchResultsProps> = ({ messages, channelName }) 
     const [searchParams] = useSearchParams();
     const query = searchParams.get('q') || '';
 
+    console.log('messages', messages);
+
     return (
         <div className="flex flex-col h-screen w-full">
             <div className="sticky top-0 z-10 p-4 bg-purple-700">
