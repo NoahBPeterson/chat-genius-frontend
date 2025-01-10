@@ -5,6 +5,7 @@ import { User, JWTPayload } from '../types/Types';
 import FileUpload from './FileUpload';
 import MessageContent from './MessageContent';
 import ThreadView from './ThreadView';
+import { useNavigate } from 'react-router-dom';
 
 interface MessagesProps {
     channelId: string;
@@ -39,17 +40,29 @@ const Messages: React.FC<MessagesProps> = ({
 }) => {
     const [newMessage, setNewMessage] = useState<string>('');
     const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
+    const [hasNewMessages, setHasNewMessages] = useState<boolean>(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const highlightedMessageId = useRef<string | null>(null);
     const typingTimeoutRef = useRef<NodeJS.Timeout>();
+    const navigate = useNavigate();
 
-    const scrollToBottom = () => {
-        if (highlightedMessageId.current) return;
+    const scrollToBottom = (force: boolean = false) => {
+        if (highlightedMessageId.current && !force) {
+            setHasNewMessages(true);
+            return;
+        }
         messagesContainerRef.current?.scrollTo({
             top: messagesContainerRef.current.scrollHeight,
-            behavior: "auto"
+            behavior: force ? "auto" : "smooth"
         });
+        setHasNewMessages(false);
+    };
+
+    const handleNewMessages = () => {
+        highlightedMessageId.current = null;
+        navigate('/', { replace: true });
+        scrollToBottom(true);
     };
 
     const scrollToMessage = (messageId: string) => {
@@ -72,7 +85,6 @@ const Messages: React.FC<MessagesProps> = ({
                 setTimeout(() => {
                     messageElement.classList.remove('bg-purple-400');
                     messageElement.classList.add('bg-purple-700');
-                    highlightedMessageId.current = null;
                 }, 2000);
             }
         }, 100);
@@ -83,7 +95,7 @@ const Messages: React.FC<MessagesProps> = ({
         if (newMessage.trim()) {
             onSendMessage(newMessage);
             setNewMessage('');
-            scrollToBottom();
+            scrollToBottom(true);
         }
     };
 
@@ -116,7 +128,7 @@ const Messages: React.FC<MessagesProps> = ({
             }
         } else {
             // Only scroll if there's no specific message to highlight
-            scrollToBottom();
+            scrollToBottom(true);
         }
     }, [messages, channelId]);
 
@@ -205,18 +217,28 @@ const Messages: React.FC<MessagesProps> = ({
         <div className="flex h-screen w-full">
             <div className="flex flex-col flex-grow">
                 <div className="sticky top-0 z-10 p-4 bg-purple-700">
-                    <h2 className="text-lg font-semibold text-white">
-                        {isSearchResults ? (
-                            <span>🔍 {channelName}</span>
-                        ) : isDM ? (
-                            <span>
-                                <span className="mr-2">👤</span>
-                                {channelName}
-                            </span>
-                        ) : (
-                            <span>#{channelName || channelId}</span>
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-lg font-semibold text-white">
+                            {isSearchResults ? (
+                                <span>🔍 {channelName}</span>
+                            ) : isDM ? (
+                                <span>
+                                    <span className="mr-2">👤</span>
+                                    {channelName}
+                                </span>
+                            ) : (
+                                <span>#{channelName || channelId}</span>
+                            )}
+                        </h2>
+                        {hasNewMessages && (
+                            <button
+                                onClick={handleNewMessages}
+                                className="px-3 py-1 bg-purple-500 hover:bg-purple-400 text-white rounded-full text-sm flex items-center gap-1"
+                            >
+                                <span>↓</span> New Messages
+                            </button>
                         )}
-                    </h2>
+                    </div>
                 </div>
 
                 <div 
@@ -237,7 +259,7 @@ const Messages: React.FC<MessagesProps> = ({
                                 <div className="flex flex-col">
                                     {isSearchResults && (
                                         <div className="text-sm text-purple-400 mb-1">
-                                            in {message.thread?.id ? 
+                                            in {message.thread_id ? 
                                                 `Thread in ${channels.find(c => Number(c.id) == message.channel_id)?.is_dm ? 
                                                     `DM: ${getChannelName(message.channel_id.toString())}` : 
                                                     `#${channels.find(c => Number(c.id) == message.channel_id)?.name || 'Unknown Channel'}`}` :
@@ -253,6 +275,21 @@ const Messages: React.FC<MessagesProps> = ({
                                         <span className="text-xs text-gray-400">
                                             {new Date(message.created_at).toLocaleTimeString()}
                                         </span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const baseUrl = window.location.origin;
+                                                const url = message.thread_parent_message_id 
+                                                    ? `${baseUrl}/?message=${message.thread_parent_message_id}&thread_message=${message.id}`
+                                                    : `${baseUrl}/?message=${message.id}`;
+                                                navigator.clipboard.writeText(url);
+                                                // Optional: Show a tooltip or notification that the link was copied
+                                            }}
+                                            className="text-xs text-gray-400 hover:text-purple-300"
+                                            title="Copy link to message"
+                                        >
+                                            🔗
+                                        </button>
                                         {!isSearchResults && (
                                             <button
                                                 onClick={() => handleCreateThread(message.id.toString())}
