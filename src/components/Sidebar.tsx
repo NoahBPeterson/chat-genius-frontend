@@ -1,5 +1,5 @@
 import { jwtDecode } from 'jwt-decode';
-import React, { useState } from 'react';
+import React from 'react';
 import { User, JWTPayload } from '../types/Types';
 import { useNavigate } from 'react-router-dom';
 import UserStatus from './UserStatus';
@@ -18,12 +18,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     users, 
     onChannelSelect, 
     onUserSelect,
-    setIsDM,
-    wsRef
+    setIsDM
 }) => {
     const navigate = useNavigate();
-    const [showStatusInput, setShowStatusInput] = useState(false);
-    const [customStatus, setCustomStatus] = useState('');
 
     const handleChannelClick = (channelId: string) => {
         setIsDM(false);

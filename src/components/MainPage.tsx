@@ -4,9 +4,8 @@ import Sidebar from './Sidebar';
 import Messages from './Messages';
 import API_Client, { hasValidToken } from '../API_Client';
 import { jwtDecode } from "jwt-decode";
-import { Message, JWTPayload, User, Channel } from '../types/Types';
+import { Message, JWTPayload, User } from '../types/Types';
 import SearchBar from './SearchBar';
-import SearchResults from './SearchResults';
 import ProfileMenu from './ProfileMenu';
 import UserStatus from './UserStatus';
 
@@ -26,7 +25,6 @@ const MainPage: React.FC = () => {
     const wsRef = useRef<WebSocket | null>(null);
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const searchQuery = searchParams.get('q');
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
     const fetchChannels = async () => {
@@ -116,6 +114,13 @@ const MainPage: React.FC = () => {
                     case 'auth_success':
                         requestPresenceStatus();
                         break;
+                    case 'message_updated':
+                        if (data.message.channel_id === selectedChannelId) {
+                            setMessages(prev => prev.map(msg => 
+                                msg.id === data.message.id ? data.message : msg
+                            ));
+                        }
+                        break;
                     case 'new_message':
                         if (data.message.channel_id === selectedChannelId) {
                             setMessages(prev => {
@@ -152,12 +157,35 @@ const MainPage: React.FC = () => {
                                     ? {
                                         ...user,
                                         is_typing: {
-                                            ...user.is_typing,
-                                            [data.channelId]: data.isTyping
+                                            channels: {
+                                                ...user.is_typing?.channels,
+                                                [data.channelId]: data.contextType === 'channel' ? data.isTyping : user.is_typing?.channels?.[data.channelId]
+                                            },
+                                            threads: {
+                                                ...user.is_typing?.threads,
+                                                [data.threadId]: data.contextType === 'thread' ? data.isTyping : user.is_typing?.threads?.[data.threadId]
+                                            }
                                         }
                                     }
                                     : user
                             )
+                        );
+                        break;
+                    case 'typing_status':
+                        setUsers(prevUsers =>
+                            prevUsers.map(user => ({
+                                ...user,
+                                is_typing: {
+                                    channels: {
+                                        ...(user.is_typing?.channels || {}),
+                                        [data.context_id]: data.context_type === 'channel' && data.users.includes(Number(user.id))
+                                    },
+                                    threads: {
+                                        ...(user.is_typing?.threads || {}),
+                                        [data.context_id]: data.context_type === 'thread' && data.users.includes(Number(user.id))
+                                    }
+                                }
+                            }))
                         );
                         break;
                     case 'user_update':
@@ -208,6 +236,52 @@ const MainPage: React.FC = () => {
                             });
                             return updatedUsers;
                         });
+                        break;
+                    case 'thread_created':
+                        if (data.thread.channel_id === Number(selectedChannelId)) {
+                            // Update the messages to show thread status
+                            setMessages(prevMessages => 
+                                prevMessages.map(msg => {
+                                    if (msg.id === data.thread.parent_message_id) {
+                                        return {
+                                            ...msg,
+                                            has_thread: true,
+                                            thread: {
+                                                ...data.thread,
+                                                reply_count: 0
+                                            }
+                                        };
+                                    }
+                                    return msg;
+                                })
+                            );
+                        }
+                        break;
+                    case 'thread_message':
+                        if (data.message.channel_id === selectedChannelId) {
+                            console.log('Thread message received:', data);
+                            // Update the parent message's thread info
+                            setMessages(prev => prev.map(msg => {
+                                if (msg.id === data.message.parent_message_id && msg.thread) {
+                                    return {
+                                        ...msg,
+                                        has_thread: true,
+                                        thread: {
+                                            id: msg.thread.id,
+                                            channel_id: msg.thread.channel_id,
+                                            parent_message_id: msg.thread.parent_message_id,
+                                            created_at: msg.thread.created_at,
+                                            last_reply_at: data.message.created_at,
+                                            thread_starter_content: msg.thread.thread_starter_content,
+                                            thread_starter_name: msg.thread.thread_starter_name,
+                                            thread_starter_id: msg.thread.thread_starter_id,
+                                            reply_count: msg.thread.reply_count + 1
+                                        }
+                                    };
+                                }
+                                return msg;
+                            }));
+                        }
                         break;
                     default:
                         console.log('Unknown message type:', data);
@@ -382,9 +456,9 @@ const MainPage: React.FC = () => {
     const handleTyping = (isTyping: boolean) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({
-                type: 'typing_update',
+                type: isTyping ? 'typing_start' : 'typing_stop',
                 channelId: selectedChannelId,
-                isTyping,
+                contextType: 'channel',
                 token: localStorage.getItem('token')
             }));
         }
@@ -490,6 +564,7 @@ const MainPage: React.FC = () => {
                             onMessageClick={handleMessageClick}
                             onFileUpload={handleFileUpload}
                             onTyping={handleTyping}
+                            wsRef={wsRef}
                         />
                     )}
                 </div>

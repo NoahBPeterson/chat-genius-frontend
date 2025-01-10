@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Button from '@mui/material/Button';
-import API_Client from '../API_Client';
-import { setAuthToken } from '../API_Client';
+import API_Client, { setAuthToken } from '../API_Client';
 
 const Login: React.FC = () => {
     const [email, setEmail] = useState('');
