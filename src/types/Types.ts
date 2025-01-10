@@ -3,19 +3,13 @@ export interface Message {
     channel_id: number;
     user_id: number;
     content: string;
-    created_at: string;
     timestamp: string;
+    created_at: string;
     display_name: string;
-    has_thread?: boolean;
+    thread?: Thread;
     thread_id?: number;
-    is_thread_parent: boolean;
-    thread: Thread | null;
-    attachments: Array<{
-        filename: string;
-        mime_type: string;
-        size: number;
-        storage_path: string;
-    }>;
+    is_thread_parent?: boolean;
+    thread_parent_message_id?: number;
 }
 
 export interface JWTPayload {

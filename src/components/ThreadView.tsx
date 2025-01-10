@@ -12,8 +12,15 @@ interface ThreadViewProps {
     users: User[];
 }
 
-const ThreadView: React.FC<ThreadViewProps> = ({ thread, channelId, wsRef, onClose, allMessages, users }) => {
-    const [messages, setMessages] = useState<Message[]>([]);
+const ThreadView: React.FC<ThreadViewProps> = ({ 
+    thread, 
+    channelId, 
+    wsRef, 
+    onClose, 
+    allMessages, 
+    users,
+}) => {
+    const [messages, setThreadMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const typingTimeoutRef = useRef<NodeJS.Timeout>();
@@ -24,13 +31,12 @@ const ThreadView: React.FC<ThreadViewProps> = ({ thread, channelId, wsRef, onClo
                 try {
                     const response = await API_Client.get(`/api/threads/${thread.id}/messages`);
                     if (response.status === 200) {
-                        console.log("Fetched thread messages:", response.data);
                         const sortedMessages = [...response.data.messages]
                             .filter(message => message.id !== thread.parent_message_id)
                             .sort((a: Message, b: Message) => 
                                 new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
                             );
-                        setMessages(sortedMessages);
+                        setThreadMessages(sortedMessages);
                     }
                 } catch (error) {
                     console.error('Error fetching thread messages:', error);
@@ -42,7 +48,8 @@ const ThreadView: React.FC<ThreadViewProps> = ({ thread, channelId, wsRef, onClo
             const data = JSON.parse(event.data);
             if (data.type === 'thread_message') {
                 if (data.message.thread_id === thread.id && data.message.id !== thread.parent_message_id) {
-                    setMessages(prev => {
+                    // Update thread messages
+                    setThreadMessages(prev => {
                         const newMessages = [...prev];
                         const messageIndex = newMessages.findIndex(m => m.id === data.message.id);
                         if (messageIndex === -1) {
@@ -50,6 +57,7 @@ const ThreadView: React.FC<ThreadViewProps> = ({ thread, channelId, wsRef, onClo
                         }
                         return newMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
                     });
+
                 }
             } else if (data.type === 'thread_created' && data.thread.parent_message_id === thread.parent_message_id) {
                 if (thread.id === -1) {
@@ -68,7 +76,6 @@ const ThreadView: React.FC<ThreadViewProps> = ({ thread, channelId, wsRef, onClo
 
     const handleSendMessage = () => {
         if (!newMessage.trim()) return;
-        console.log("Sending message:", newMessage);
         if (wsRef.current?.readyState === WebSocket.OPEN) {
             if (thread.id === -1) {
                 // Create new thread with first message
@@ -167,7 +174,11 @@ const ThreadView: React.FC<ThreadViewProps> = ({ thread, channelId, wsRef, onClo
                         <div className="text-gray-400 text-center">Start the thread by sending a message</div>
                     ) : (
                         messages.map((message) => (
-                            <div key={message.id} className="bg-gray-700 rounded p-3">
+                            <div 
+                                key={message.id} 
+                                id={`thread-message-${message.id}`}
+                                className="bg-gray-700 rounded p-3"
+                            >
                                 <div className="flex items-baseline gap-2">
                                     <span className="font-bold text-purple-300">
                                         {message.display_name}

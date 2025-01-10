@@ -15,10 +15,11 @@ interface MessagesProps {
     isSearchResults?: boolean;
     channels?: Channel[];
     users?: User[];
-    onMessageClick?: (channelId: string, messageId: string) => void;
+    onMessageClick?: (channelId: string, messageId: string, threadParentMessageId?: string) => void;
     onFileUpload: (storagePath: string, filename: string, size: number, mimeType: string) => void;
     onTyping: (isTyping: boolean) => void;
     wsRef: React.RefObject<WebSocket>;
+    setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 }
 
 const Messages: React.FC<MessagesProps> = ({ 
@@ -33,7 +34,8 @@ const Messages: React.FC<MessagesProps> = ({
     onMessageClick,
     onFileUpload,
     onTyping,
-    wsRef
+    wsRef,
+    setMessages
 }) => {
     const [newMessage, setNewMessage] = useState<string>('');
     const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
@@ -88,9 +90,30 @@ const Messages: React.FC<MessagesProps> = ({
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const messageId = urlParams.get('message');
+        const threadMessageId = urlParams.get('thread_message');
 
         if (messageId) {
             scrollToMessage(messageId);
+            // Only open the thread if there's a thread_message parameter
+            // and it's different from the message parameter (meaning it's a thread reply)
+            if (threadMessageId && threadMessageId !== messageId) {
+                const message = messages.find(m => String(m.id) === String(messageId));
+                if (message) {
+                    handleCreateThread(messageId);
+                    // After a short delay to let the thread view open, highlight the thread message
+                    setTimeout(() => {
+                        const threadMessageElement = document.getElementById(`thread-message-${threadMessageId}`);
+                        if (threadMessageElement) {
+                            threadMessageElement.classList.remove('bg-gray-700');
+                            threadMessageElement.classList.add('bg-purple-400');
+                            setTimeout(() => {
+                                threadMessageElement.classList.remove('bg-purple-400');
+                                threadMessageElement.classList.add('bg-gray-700');
+                            }, 2000);
+                        }
+                    }, 500); // Wait for thread view to open
+                }
+            }
         } else {
             const lastMessage = messages[messages.length - 1];
             // Only scroll if it's a new channel message (not a thread message) and not a thread parent update
@@ -137,18 +160,34 @@ const Messages: React.FC<MessagesProps> = ({
             const data = JSON.parse(event.data);
             if (data.type === 'thread_created' && data.thread.channel_id === Number(channelId)) {
                 setSelectedThread(data.thread);
+            } else if (data.type === 'thread_message' && data.message.channel_id === Number(channelId)) {
+                // Update reply count even if thread is not open
+                setMessages(prevMessages => 
+                    prevMessages.map(msg => {
+                        if (msg.id === data.message.parent_message_id && msg.thread) {
+                            return {
+                                ...msg,
+                                thread: {
+                                    ...msg.thread,
+                                    reply_count: msg.thread.reply_count + 1,
+                                    last_reply_at: data.message.created_at
+                                }
+                            };
+                        }
+                        return msg;
+                    })
+                );
             }
-            console.log("MESSAGE DEBUG !", data.type, data);
         };
 
         wsRef.current?.addEventListener('message', handleWebSocketMessage);
         return () => wsRef.current?.removeEventListener('message', handleWebSocketMessage);
-    }, [channelId]);
+    }, [channelId, setMessages]);
 
     const handleCreateThread = (messageId: string) => {
         // Find the message that will start the thread
         const message = messages.find(msg => msg.id.toString() === messageId);
-        console.log("Opening thread for message:", message);
+
         if (message) {
             const tempThread: Thread = {
                 id: message.thread?.id || -1,
@@ -189,7 +228,7 @@ const Messages: React.FC<MessagesProps> = ({
                 >
                     <ul className="space-y-2">
                         {messages
-                            .filter(message => !message.thread_id || message.is_thread_parent)
+                            .filter(message => isSearchResults || (!message.thread_id || message.is_thread_parent))
                             .map((message) => (
                             <li
                                 key={message.id}
@@ -201,9 +240,13 @@ const Messages: React.FC<MessagesProps> = ({
                                 <div className="flex flex-col">
                                     {isSearchResults && (
                                         <div className="text-sm text-purple-400 mb-1">
-                                            in {channels.find(c => Number(c.id) == message.channel_id)?.is_dm ? 
-                                                `DM: ${getChannelName(message.channel_id.toString())}` : 
-                                                `#${channels.find(c => Number(c.id) == message.channel_id)?.name || 'Unknown Channel'}`}
+                                            in {message.thread_id ? 
+                                                `Thread in ${channels.find(c => Number(c.id) == message.channel_id)?.is_dm ? 
+                                                    `DM: ${getChannelName(message.channel_id.toString())}` : 
+                                                    `#${channels.find(c => Number(c.id) == message.channel_id)?.name || 'Unknown Channel'}`}` :
+                                                channels.find(c => Number(c.id) == message.channel_id)?.is_dm ? 
+                                                    `DM: ${getChannelName(message.channel_id.toString())}` : 
+                                                    `#${channels.find(c => Number(c.id) == message.channel_id)?.name || 'Unknown Channel'}`}
                                         </div>
                                     )}
                                     <div className="flex items-baseline gap-2">
@@ -213,20 +256,30 @@ const Messages: React.FC<MessagesProps> = ({
                                         <span className="text-xs text-gray-400">
                                             {new Date(message.timestamp).toLocaleTimeString()}
                                         </span>
-                                        <button
-                                            onClick={() => handleCreateThread(message.id.toString())}
-                                            className="ml-auto text-xs text-purple-400 hover:text-purple-300"
-                                        >
-                                            💬 {message.thread?.reply_count 
-                                                ? `${message.thread.reply_count} ${message.thread.reply_count === 1 ? 'reply' : 'replies'}` 
-                                                : 'Reply in Thread'}
-                                        </button>
+                                        {!isSearchResults && (
+                                            <button
+                                                onClick={() => handleCreateThread(message.id.toString())}
+                                                className="ml-auto text-xs text-purple-400 hover:text-purple-300"
+                                            >
+                                                💬 {message.thread?.reply_count 
+                                                    ? `${message.thread.reply_count} ${message.thread.reply_count === 1 ? 'reply' : 'replies'}` 
+                                                    : 'Reply in Thread'}
+                                            </button>
+                                        )}
                                     </div>
                                     <div 
                                         className="mt-1 break-all whitespace-pre-wrap"
                                         onClick={() => {
                                             if (isSearchResults && onMessageClick) {
-                                                onMessageClick(message.channel_id.toString(), message.id.toString());
+                                                onMessageClick(
+                                                    message.channel_id.toString(), 
+                                                    message.id.toString(),
+                                                    message.thread_parent_message_id?.toString()
+                                                );
+                                                // If this is a thread message, we'll create the thread view for the parent message
+                                                if (message.thread_parent_message_id) {
+                                                    handleCreateThread(message.thread_parent_message_id.toString());
+                                                }
                                             }
                                         }}
                                     >

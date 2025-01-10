@@ -4,7 +4,7 @@ import Sidebar from './Sidebar';
 import Messages from './Messages';
 import API_Client, { hasValidToken } from '../API_Client';
 import { jwtDecode } from "jwt-decode";
-import { Message, JWTPayload, User } from '../types/Types';
+import { Message, JWTPayload, User, Thread } from '../types/Types';
 import SearchBar from './SearchBar';
 import ProfileMenu from './ProfileMenu';
 import UserStatus from './UserStatus';
@@ -81,7 +81,13 @@ const MainPage: React.FC = () => {
 
     useEffect(() => {
         const connectWebSocket = () => {
+            // Don't try to reconnect if we already have an open connection
             if (wsRef.current?.readyState === WebSocket.OPEN) {
+                return;
+            }
+
+            // Don't try to reconnect if we're in the process of connecting
+            if (wsRef.current?.readyState === WebSocket.CONNECTING) {
                 return;
             }
 
@@ -97,7 +103,8 @@ const MainPage: React.FC = () => {
             };
 
             wsRef.current.onopen = () => {
-                if (wsRef.current) {
+                console.log('WebSocket connected');
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
                     wsRef.current.send(JSON.stringify({
                         type: 'authenticate',
                         token: localStorage.getItem('token')
@@ -122,11 +129,14 @@ const MainPage: React.FC = () => {
                         }
                         break;
                     case 'new_message':
-                        if (data.message.channel_id === selectedChannelId) {
+                        console.log('Received new message:', data.message, 'Selected channel:', selectedChannelId);
+                        // Don't add messages for search results view
+                        if (selectedChannelId !== SEARCH_CHANNEL_ID && 
+                            String(data.message.channel_id) === String(selectedChannelId)) {
                             setMessages(prev => {
                                 const messageExists = prev.some(msg => 
-                                    msg.id === data.message.id && 
-                                    msg.channel_id === data.message.channel_id
+                                    String(msg.id) === String(data.message.id) && 
+                                    String(msg.channel_id) === String(data.message.channel_id)
                                 );
                                 if (messageExists) {
                                     return prev;
@@ -258,30 +268,27 @@ const MainPage: React.FC = () => {
                         }
                         break;
                     case 'thread_message':
-                        if (data.message.channel_id === selectedChannelId) {
-                            console.log('Thread message received:', data);
-                            // Update the parent message's thread info
-                            setMessages(prev => prev.map(msg => {
-                                if (msg.id === data.message.parent_message_id && msg.thread) {
-                                    return {
-                                        ...msg,
-                                        has_thread: true,
-                                        thread: {
-                                            id: msg.thread.id,
-                                            channel_id: msg.thread.channel_id,
-                                            parent_message_id: msg.thread.parent_message_id,
-                                            created_at: msg.thread.created_at,
-                                            last_reply_at: data.message.created_at,
-                                            thread_starter_content: msg.thread.thread_starter_content,
-                                            thread_starter_name: msg.thread.thread_starter_name,
-                                            thread_starter_id: msg.thread.thread_starter_id,
-                                            reply_count: msg.thread.reply_count + 1
-                                        }
-                                    };
-                                }
-                                return msg;
-                            }));
-                        }
+                        // Update the parent message's thread info regardless of selected channel
+                        setMessages(prev => prev.map(msg => {
+                            if (msg.id === data.thread.parent_message_id && msg.thread) {
+                                return {
+                                    ...msg,
+                                    has_thread: true,
+                                    thread: {
+                                        id: msg.thread.id,
+                                        channel_id: msg.thread.channel_id,
+                                        parent_message_id: msg.thread.parent_message_id,
+                                        created_at: msg.thread.created_at,
+                                        last_reply_at: data.message.created_at,
+                                        thread_starter_content: msg.thread.thread_starter_content,
+                                        thread_starter_name: msg.thread.thread_starter_name,
+                                        thread_starter_id: msg.thread.thread_starter_id,
+                                        reply_count: data.thread.reply_count
+                                    }
+                                };
+                            }
+                            return msg;
+                        }));
                         break;
                     default:
                         console.log('Unknown message type:', data);
@@ -303,14 +310,18 @@ const MainPage: React.FC = () => {
             };
         };
 
-        connectWebSocket();
+        // Only connect if we have a valid token
+        if (localStorage.getItem('token')) {
+            connectWebSocket();
+        }
         
         return () => {
             if (wsRef.current) {
                 wsRef.current.close();
+                wsRef.current = null;
             }
         };
-    }, [selectedChannelId]);
+    }, []); // Empty dependency array since we want this to run only once on mount
 
     // Function to send messages through WebSocket
     const sendMessage = (content: string) => {
@@ -407,16 +418,10 @@ const MainPage: React.FC = () => {
         }
     };
 
-    const handleMessageClick = async (channelId: string, messageId: string) => {
+    const handleMessageClick = async (channelId: string, messageId: string, threadParentMessageId?: string) => {
         setMessages([]); // Clear messages first
         
         const channel = channels.find(c => String(c.id) === String(channelId));
-        console.log('Clicked message channel:', {
-            channel,
-            channelId,
-            isDM: channel?.is_dm,
-            name: channel?.name
-        });
 
         setSelectedChannelId(channelId);
         setIsDM(channel?.is_dm || false);
@@ -430,8 +435,46 @@ const MainPage: React.FC = () => {
             setSelectedUserId(null);
         }
         
-        navigate(`/?message=${messageId}`, { replace: true });
-        await fetchMessages(channelId);
+        try {
+            // First fetch messages to ensure we have the thread data
+            const response = await API_Client.get(`/api/channels/${channelId}/messages`);
+            if (response.status === 200) {
+                const channelMessages = response.data;
+                setMessages(channelMessages);
+                
+                // If this is a thread message, navigate to its parent message and open the thread
+                if (threadParentMessageId) {
+                    // Include both parent and thread message IDs in the URL
+                    navigate(`/?message=${threadParentMessageId}&thread_message=${messageId}`, { replace: true });
+                    // Find the parent message from the fetched messages
+                    const parentMessage = channelMessages.find((m: Message) => String(m.id) === String(threadParentMessageId));
+                    console.log("Found parent message:", parentMessage);
+                    if (parentMessage) {
+                        const tempThread: Thread = {
+                            id: parentMessage.thread?.id || -1,
+                            channel_id: Number(channelId),
+                            parent_message_id: Number(threadParentMessageId),
+                            created_at: parentMessage.created_at,
+                            last_reply_at: parentMessage.thread?.last_reply_at || parentMessage.created_at,
+                            thread_starter_content: parentMessage.content,
+                            thread_starter_name: parentMessage.display_name,
+                            thread_starter_id: parentMessage.user_id,
+                            reply_count: parentMessage.thread?.reply_count || 0
+                        };
+                        // Send a message to open the thread
+                        wsRef.current?.send(JSON.stringify({
+                            type: 'thread_created',
+                            thread: tempThread,
+                            token: localStorage.getItem('token')
+                        }));
+                    }
+                } else {
+                    navigate(`/?message=${messageId}`, { replace: true });
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+        }
     };
 
     const handleFileUpload = async (storagePath: string, filename: string, size: number, mimeType: string) => {
@@ -565,6 +608,7 @@ const MainPage: React.FC = () => {
                             onFileUpload={handleFileUpload}
                             onTyping={handleTyping}
                             wsRef={wsRef}
+                            setMessages={setMessages}
                         />
                     )}
                 </div>
