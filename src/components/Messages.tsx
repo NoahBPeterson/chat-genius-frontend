@@ -95,6 +95,7 @@ const Messages: React.FC<MessagesProps> = ({
         if (newMessage.trim()) {
             onSendMessage(newMessage);
             setNewMessage('');
+            onTyping(false);
             scrollToBottom(true);
         }
     };
