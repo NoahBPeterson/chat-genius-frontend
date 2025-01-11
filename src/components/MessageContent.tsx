@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Message } from '../types/Types';
 import MessageReactions from './MessageReactions';
+import API_Client from '../API_Client';
 
 interface MessageContentProps {
     message: Message;
@@ -8,21 +9,54 @@ interface MessageContentProps {
 }
 
 const MessageContent: React.FC<MessageContentProps> = ({ message, wsRef }) => {
+    const [fileUrl, setFileUrl] = useState<string | null>(null);
+    
     if (!message) return null;
+
+    const fileMatch = message.content.match(/\[File: (.*?)\]\((.*?)\)/);
+
+    useEffect(() => {
+        const fetchFileUrl = async () => {
+            if (fileMatch) {
+                try {
+                    const response = await API_Client.get(`/api/files/${fileMatch[2]}`);
+                    setFileUrl(response.data.downloadUrl);
+                } catch (error) {
+                    console.error('Error fetching file URL:', error);
+                }
+            }
+        };
+
+        fetchFileUrl();
+    }, [message.content]);
     
     return (
         <div className="flex flex-col">
-            <span>{message.content}</span>
-            {message.attachments && message.attachments.length > 0 && (
-                <div className="mt-2">
-                    {message.attachments.map((attachment, index) => (
-                        <div key={index} className="text-blue-500 hover:underline">
-                            <a href={attachment.storage_path} target="_blank" rel="noopener noreferrer">
-                                {attachment.filename}
+            {fileMatch ? (
+                <div className="mb-2">
+                    {(() => {
+                        const [, filename] = fileMatch;
+                        const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(filename);
+                        return isImage && fileUrl ? (
+                            <img 
+                                src={fileUrl}
+                                alt={filename}
+                                className="max-w-md max-h-60 rounded-lg cursor-pointer hover:opacity-90"
+                            />
+                        ) : (
+                            <a 
+                                href={fileUrl || '#'}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-blue-300 hover:text-blue-200 underline"
+                            >
+                                📎 {filename}
                             </a>
-                        </div>
-                    ))}
+                        );
+                    })()}
                 </div>
+            ) : (
+                <span>{message.content}</span>
             )}
             <MessageReactions
                 messageId={message.id}
