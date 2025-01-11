@@ -1,7 +1,15 @@
 import axios from 'axios';
 
+const getBaseUrl = () => {
+    if (import.meta.env.DEV) {
+        return 'http://localhost:3000';
+    }
+    // In production, use the same host as the frontend
+    return `${window.location.protocol}//${window.location.host}`;
+};
+
 const API_Client = axios.create({
-    baseURL: 'http://localhost:3000',
+    baseURL: getBaseUrl(),
     headers: {
         'Content-Type': 'application/json'
     }

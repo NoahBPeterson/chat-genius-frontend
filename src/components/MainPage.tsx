@@ -265,30 +265,30 @@ const MainPage: React.FC = () => {
                             );
                         }
                         break;
-                        case 'thread_message':
-                            // Update the parent message's thread info regardless of selected channel
-                            setMessages(prev => prev.map(msg => {
-                                if (msg.id === data.thread.parent_message_id) {
-                                    return {
-                                        ...msg,
-                                        has_thread: true,
-                                        thread: {
-                                            ...(msg.thread || {}),
-                                            id: data.thread.id,
-                                            channel_id: data.thread.channel_id,
-                                            parent_message_id: data.thread.parent_message_id,
-                                            created_at: data.thread.created_at,
-                                            last_reply_at: data.message.created_at,
-                                            thread_starter_content: msg.content,
-                                            thread_starter_name: msg.display_name,
-                                            thread_starter_id: msg.user_id,
-                                            reply_count: data.thread.reply_count
-                                        }
-                                    };
-                                }
-                                return msg;
-                            }));
-                            break;
+                    case 'thread_message':
+                        // Update the parent message's thread info regardless of selected channel
+                        setMessages(prev => prev.map(msg => {
+                            if (msg.id === data.thread.parent_message_id) {
+                                return {
+                                    ...msg,
+                                    has_thread: true,
+                                    thread: {
+                                        ...(msg.thread || {}),
+                                        id: data.thread.id,
+                                        channel_id: data.thread.channel_id,
+                                        parent_message_id: data.thread.parent_message_id,
+                                        created_at: data.thread.created_at,
+                                        last_reply_at: data.message.created_at,
+                                        thread_starter_content: msg.content,
+                                        thread_starter_name: msg.display_name,
+                                        thread_starter_id: msg.user_id,
+                                        reply_count: data.thread.reply_count
+                                    }
+                                };
+                            }
+                            return msg;
+                        }));
+                        break;
                     case 'reaction_update':
                         setMessages(prev => prev.map(msg => {
                             if (msg.id === data.messageId) {
@@ -299,6 +299,10 @@ const MainPage: React.FC = () => {
                             }
                             return msg;
                         }));
+                        break;
+                    case 'request_users':
+                        console.log('Received request_users:', data);
+                        setUsers(data.users);
                         break;
                     default:
                         console.log('Unknown message type:', data);
