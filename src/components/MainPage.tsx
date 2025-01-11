@@ -89,11 +89,11 @@ const MainPage: React.FC = () => {
                 return;
             }
 
-            const baseUrl = `${window.location.host}:8080`;
+            const baseUrl = `${window.location.host}`;
 
             if (baseUrl.includes('localhost')) {
-                wsRef.current = new WebSocket(`ws://${baseUrl}`);
-                console.log('WebSocket URL:', `ws://${baseUrl}`);
+                wsRef.current = new WebSocket(`ws://${baseUrl}:8080`);
+                console.log('WebSocket URL:', `ws://${baseUrl}:8080`);
             } else {
                 wsRef.current = new WebSocket(`wss://${baseUrl}/ws`);
                 console.log('WebSocket URL:', `wss://${baseUrl}/ws`);
