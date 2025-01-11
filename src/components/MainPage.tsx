@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Messages from './Messages';
-import API_Client, { hasValidToken } from '../API_Client';
+import API_Client from '../API_Client';
 import { jwtDecode } from "jwt-decode";
 import { Message, JWTPayload, User, Thread } from '../types/Types';
 import SearchBar from './SearchBar';
@@ -90,15 +90,6 @@ const MainPage: React.FC = () => {
             }
 
             wsRef.current = new WebSocket('ws://localhost:8080');
-            
-            const requestPresenceStatus = () => {
-                if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({
-                        type: 'get_presence',
-                        token: localStorage.getItem('token')
-                    }));
-                }
-            };
 
             wsRef.current.onopen = () => {
                 console.log('WebSocket connected');
@@ -107,8 +98,6 @@ const MainPage: React.FC = () => {
                         type: 'authenticate',
                         token: localStorage.getItem('token')
                     }));
-                    
-                    setTimeout(requestPresenceStatus, 500);
                 }
             };
 
@@ -122,9 +111,6 @@ const MainPage: React.FC = () => {
                 }
 
                 switch (data.type) {
-                    case 'auth_success':
-                        requestPresenceStatus();
-                        break;
                     case 'message_updated':
                         if (data.message.channel_id === selectedChannelId) {
                             setMessages(prev => prev.map(msg => 
