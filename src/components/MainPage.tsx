@@ -600,7 +600,7 @@ const MainPage: React.FC = () => {
                         <SearchBar onSearch={handleSearch} />
                         
                         {/* Admin Controls */}
-                        {userRole === 'admin' && (
+                        {userRole === 'member' || userRole === 'admin' && (
                             <div className="p-4 border-b border-gray-700">
                                 <button
                                     onClick={() => setIsInputVisible(!isInputVisible)}
