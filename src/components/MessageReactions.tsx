@@ -22,12 +22,6 @@ const MessageReactions: React.FC<MessageReactionsProps> = ({ messageId, reaction
     const handleReactionClick = (emoji: string) => {
         if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
-        console.log('Sending reaction update:', {
-            messageId,
-            emoji,
-            currentUserId
-        });
-
         wsRef.current.send(JSON.stringify({
             type: 'update_reaction',
             messageId,

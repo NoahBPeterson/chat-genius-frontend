@@ -128,20 +128,12 @@ const MainPage: React.FC = () => {
                     case 'new_message':
                         const messageChannelStr = String(data.message.channel_id);
                         const selectedChannelStr = String(currentChannelRef.current);
-                        console.log('Received new message:', {
-                            messageId: data.message.id,
-                            messageChannelId: messageChannelStr,
-                            selectedChannelId: selectedChannelStr,
-                            match: messageChannelStr === selectedChannelStr
-                        });
                         // Don't add messages for search results view
                         if (currentChannelRef.current !== SEARCH_CHANNEL_ID && 
                             messageChannelStr === selectedChannelStr) {
-                            console.log('Adding message to state');
                             setMessages(prev => {
                                 const messageExists = prev.some(msg => msg.id === data.message.id);
                                 if (messageExists) {
-                                    console.log('Message already exists');
                                     return prev;
                                 }
                                 return [...prev, data.message];
@@ -588,7 +580,6 @@ const MainPage: React.FC = () => {
             }));
         }
     };
-    console.log('User role:', userRole, userRole === 'member');
 
     return (
         <div className="flex h-screen">

@@ -28,10 +28,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     return (
-        <>
-            <h1 className="text-4xl font-bold text-center py-6">ChatGenius</h1>
-            <hr className="border-2 border-gray-900" />
-            <div className="sidebar flex-1 overflow-y-auto p-4 flex-shrink-0">
+        <div className="flex flex-col h-full">
+            <h1 className="text-4xl font-bold text-center py-6 flex-shrink-0">ChatGenius</h1>
+            <hr className="border-2 border-gray-900 flex-shrink-0" />
+            
+            {/* Single scrollable container for both channels and DMs */}
+            <div className="flex-1 overflow-y-auto p-4 pb-40">
+                {/* Channels section */}
                 <div className="mb-6">
                     <h2 className="text-lg font-semibold mb-2">Channels</h2>
                     <ul className="space-y-1">
@@ -50,50 +53,51 @@ const Sidebar: React.FC<SidebarProps> = ({
                         ))}
                     </ul>
                 </div>
-            </div>
-            <hr className="border-2 border-gray-900" />
-            <div className="sidebar flex-1 overflow-y-auto p-4 flex-shrink-0">
-                <h2 className="text-lg font-semibold mb-2">Direct Messages</h2>
-                <ul className="space-y-1">
-                    {(() => {
-                        const token = localStorage.getItem('token') as string;
-                        if (!token) {
-                            navigate('/login');
-                            return null;
-                        }
-                        const currentUserId = jwtDecode<JWTPayload>(token)?.userId;
-                        return users.filter(user => {
-                            return Number(user.id) !== currentUserId;
-                        }).map(user => (
-                            <li key={user.id}>
-                                <button 
-                                    onClick={() => onUserSelect(user.id)}
-                                    className="flex items-center gap-2 px-4 py-2 w-full text-left hover:bg-purple-700 transition-colors"
-                                >
-                                    <div className="relative">
-                                        👤
-                                        <UserStatus 
-                                            status={user.presence_status || 'offline'} 
-                                            className="absolute bottom-0 right-0"
-                                        />
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="truncate">
-                                            {user.display_name || user.email}
-                                        </span>
-                                        {user.custom_status && (
-                                            <span className="text-sm text-gray-400 truncate">
-                                                {user.custom_status}
+
+                {/* Direct Messages section */}
+                <div>
+                    <h2 className="text-lg font-semibold mb-2">Direct Messages</h2>
+                    <ul className="space-y-1">
+                        {(() => {
+                            const token = localStorage.getItem('token') as string;
+                            if (!token) {
+                                navigate('/login');
+                                return null;
+                            }
+                            const currentUserId = jwtDecode<JWTPayload>(token)?.userId;
+                            return users.filter(user => {
+                                return Number(user.id) !== currentUserId;
+                            }).map(user => (
+                                <li key={user.id}>
+                                    <button 
+                                        onClick={() => onUserSelect(user.id)}
+                                        className="flex items-center gap-2 px-4 py-2 w-full text-left hover:bg-purple-700 transition-colors"
+                                    >
+                                        <div className="relative">
+                                            👤
+                                            <UserStatus 
+                                                status={user.presence_status || 'offline'} 
+                                                className="absolute bottom-0 right-0"
+                                            />
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="truncate">
+                                                {user.display_name || user.email}
                                             </span>
-                                        )}
-                                    </div>
-                                </button>
-                            </li>
-                        ));
-                    })()}
-                </ul>
+                                            {user.custom_status && (
+                                                <span className="text-sm text-gray-400 truncate">
+                                                    {user.custom_status}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </button>
+                                </li>
+                            ));
+                        })()}
+                    </ul>
+                </div>
             </div>
-        </>
+        </div>
     );
 };
 
