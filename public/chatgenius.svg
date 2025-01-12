@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="90" fill="#4A90E2" />
+  
+  <!-- Chat bubble -->
+  <path d="M140 80c0-22-18-40-40-40S60 58 60 80c0 18 12 33 28 38v17l17-10c2 0 3 0 5 0 22 0 40-18 40-40z" 
+        fill="white" />
+  
+  <!-- AI circuit pattern -->
+  <path d="M85 60v40M115 60v40M75 70h50M75 90h50" 
+        stroke="#4A90E2" 
+        stroke-width="3" 
+        stroke-linecap="round" />
+  
+  <!-- Genius sparkle elements -->
+  <path d="M160 60l5-5l5 5l-5 5z" fill="white" />
+  <path d="M30 140l4-4l4 4l-4 4z" fill="white" />
+  <path d="M150 130l3-3l3 3l-3 3z" fill="white" />
+  
+  <!-- Text -->
+  <text x="100" y="160" 
+        font-family="Arial, sans-serif" 
+        font-size="24" 
+        font-weight="bold" 
+        text-anchor="middle" 
+        fill="white">
+    ChatGenius
+  </text>
+</svg>
