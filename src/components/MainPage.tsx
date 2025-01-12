@@ -92,11 +92,9 @@ const MainPage: React.FC = () => {
             const baseUrl = `${window.location.host}`;
             console.log('Baseurl:', baseUrl);
             if (baseUrl.includes('localhost')) {
-                wsRef.current = new WebSocket(`ws://${baseUrl}:8080`);
-                console.log('WebSocket URL, localhost:', `ws://${baseUrl}:8080`);
+                wsRef.current = new WebSocket('ws://localhost:8080');
             } else {
                 wsRef.current = new WebSocket(`wss://${baseUrl}/ws`);
-                console.log('WebSocket URL, production:', `wss://${baseUrl}/ws`);
             }
             //wsRef.current = new WebSocket(baseUrl);
 
@@ -368,9 +366,9 @@ const MainPage: React.FC = () => {
         try {
             const response = await API_Client.post('/api/channels', { name: newChannelName });
             if (response.status === 201) {
-                setChannels([...channels, response.data]);
                 setNewChannelName('');
                 setIsInputVisible(false);
+                await fetchChannels(); // Fetch updated channels list
             }
         } catch (error) {
             console.error('Error creating channel:', error);
@@ -590,6 +588,7 @@ const MainPage: React.FC = () => {
             }));
         }
     };
+    console.log('User role:', userRole, userRole === 'member');
 
     return (
         <div className="flex h-screen">
@@ -600,7 +599,7 @@ const MainPage: React.FC = () => {
                         <SearchBar onSearch={handleSearch} />
                         
                         {/* Admin Controls */}
-                        {userRole === 'member' || userRole === 'admin' && (
+                        {(userRole === 'member' || userRole === 'admin') && (
                             <div className="p-4 border-b border-gray-700">
                                 <button
                                     onClick={() => setIsInputVisible(!isInputVisible)}
@@ -616,7 +615,7 @@ const MainPage: React.FC = () => {
                                             onChange={(e) => setNewChannelName(e.target.value)}
                                             onKeyUp={handleKeyPress}
                                             placeholder="New Channel Name"
-                                            className="w-full p-2 border rounded text-black"
+                                            className="w-full p-2 border rounded text-white bg-gray-700"
                                         />
                                     </div>
                                 )}
