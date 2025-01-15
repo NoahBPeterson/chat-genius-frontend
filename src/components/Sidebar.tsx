@@ -1,13 +1,13 @@
 import { jwtDecode } from 'jwt-decode';
 import React from 'react';
-import { User, JWTPayload } from '../types/Types';
+import { User, JWTPayload, Channel } from '../types/Types';
 import { useNavigate } from 'react-router-dom';
 import UserStatus from './UserStatus';
 
 interface SidebarProps {
-    channels: any[];
+    channels: Channel[];
     users: User[];
-    onChannelSelect: (channelId: string) => void;
+    onChannelSelect: (channelId: number) => void;
     onUserSelect: (userId: number) => void;
     setIsDM: (isDM: boolean) => void;
     wsRef: React.RefObject<WebSocket>;
@@ -22,7 +22,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
     const navigate = useNavigate();
 
-    const handleChannelClick = (channelId: string) => {
+    const handleChannelClick = (channelId: number) => {
         setIsDM(false);
         onChannelSelect(channelId);
     };

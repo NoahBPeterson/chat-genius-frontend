@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import MentionAutocomplete from './MentionAutocomplete';
 
 interface MessagesProps {
-    channelId: string;
+    channelId: number;
     channelName?: string;
     isDM: boolean;
     messages: Message[];
@@ -17,7 +17,7 @@ interface MessagesProps {
     isSearchResults?: boolean;
     channels?: Channel[];
     users?: User[];
-    onMessageClick?: (channelId: string, messageId: string, threadParentMessageId?: string) => void;
+    onMessageClick?: (channelId: number, messageId: number, threadParentMessageId?: number) => void;
     onFileUpload: (storagePath: string, filename: string, size: number, mimeType: string) => void;
     onTyping: (isTyping: boolean) => void;
     wsRef: React.RefObject<WebSocket>;
@@ -373,9 +373,9 @@ const Messages: React.FC<MessagesProps> = ({
                                             onClick={() => {
                                                 if (isSearchResults && onMessageClick) {
                                                     onMessageClick(
-                                                        message.channel_id.toString(), 
-                                                        message.id.toString(),
-                                                        message.thread_parent_message_id?.toString()
+                                                        message.channel_id, 
+                                                        message.id,
+                                                        message.thread_parent_message_id
                                                     );
                                                 }
                                             }}

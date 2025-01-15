@@ -4,18 +4,18 @@ import Sidebar from './Sidebar';
 import Messages from './Messages';
 import API_Client from '../API_Client';
 import { jwtDecode } from "jwt-decode";
-import { Message, JWTPayload, User, Thread } from '../types/Types';
+import { Message, JWTPayload, User, Thread, Channel } from '../types/Types';
 import SearchBar from './SearchBar';
 import ProfileMenu from './ProfileMenu';
 import UserStatus from './UserStatus';
 
 // Add a special channel ID for search results
-const SEARCH_CHANNEL_ID = 'search-results';
+const SEARCH_CHANNEL_ID: number = -9;
 
 const MainPage: React.FC = () => {
-    const [channels, setChannels] = useState<any[]>([]);
+    const [channels, setChannels] = useState<Channel[]>([]);
     const [users, setUsers] = useState<User[]>([]);
-    const [selectedChannelId, setSelectedChannelId] = useState<string>("1");
+    const [selectedChannelId, setSelectedChannelId] = useState<number>(1);
     const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
     const [isDM, setIsDM] = useState(false);
     const [newChannelName, setNewChannelName] = useState<string>('');
@@ -23,7 +23,7 @@ const MainPage: React.FC = () => {
     const [isInputVisible, setIsInputVisible] = useState<boolean>(false);
     const [messages, setMessages] = useState<Message[]>([]);
     const wsRef = useRef<WebSocket | null>(null);
-    const currentChannelRef = useRef<string>("1");
+    const currentChannelRef = useRef<number>(1);
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -144,8 +144,8 @@ const MainPage: React.FC = () => {
                         }
                         break;
                     case 'new_message':
-                        const messageChannelStr = String(data.message.channel_id);
-                        const selectedChannelStr = String(currentChannelRef.current);
+                        const messageChannelStr = data.message.channel_id;
+                        const selectedChannelStr = currentChannelRef.current;
                         // Don't add messages for search results view
                         if (currentChannelRef.current !== SEARCH_CHANNEL_ID && 
                             messageChannelStr === selectedChannelStr) {
@@ -216,26 +216,16 @@ const MainPage: React.FC = () => {
                     case 'user_update':
                         setUsers(data.users);
                         break;
-                    case 'presence_list':
-                        setUsers(prevUsers => {
-                            const updatedUsers = prevUsers.map(user => {
-                                const presence = data.presences.find((p: any) => p.userId === user.id);
-                                if (presence) {
-                                    return {
-                                        ...user,
-                                        presence_status: presence.status,
-                                        custom_status: presence.customStatus
-                                    };
-                                }
-                                return user;
-                            });
-                            return updatedUsers;
-                        });
-                        break;
                     case 'bulk_presence_update':
                         setUsers(prevUsers => {
                             const updatedUsers = prevUsers.map(user => {
-                                const presence = data.presenceData.find((p: any) => p.id === user.id);
+                                const presence = data.presenceData.find(
+                                    (p: { 
+                                        id: number,
+                                        presence_status: string,
+                                        status_message: string,
+                                        emoji: string
+                                    }) => p.id === user.id);
                                 if (presence) {
                                     return {
                                         ...user,
@@ -423,7 +413,7 @@ const MainPage: React.FC = () => {
         }
     };
 
-    const handleChannelSelect = async (channelId: string) => {
+    const handleChannelSelect = async (channelId: number) => {
         // Update ref immediately
         currentChannelRef.current = channelId;
         
@@ -442,7 +432,7 @@ const MainPage: React.FC = () => {
     };
 
     // Add this function to fetch messages via REST API
-    const fetchMessages = async (channelId: string) => {
+    const fetchMessages = async (channelId: number) => {
         try {
             const response = await API_Client.get(`/api/channels/${channelId}/messages`);
             if (response.status === 200) {
@@ -468,10 +458,10 @@ const MainPage: React.FC = () => {
         }
     };
 
-    const handleMessageClick = async (channelId: string, messageId: string, threadParentMessageId?: string) => {
+    const handleMessageClick = async (channelId: number, messageId: number, threadParentMessageId?: number) => {
         setMessages([]); // Clear messages first
         
-        const channel = channels.find(c => String(c.id) === String(channelId));
+        const channel = channels.find(c => c.id === channelId);
 
         setSelectedChannelId(channelId);
         setIsDM(channel?.is_dm || false);
@@ -480,7 +470,7 @@ const MainPage: React.FC = () => {
         if (channel?.is_dm) {
             const currentUserId = Number(jwtDecode<JWTPayload>(localStorage.getItem('token') as string).userId);
             const otherUserId = channel.dm_participants.find((id: number) => id !== currentUserId);
-            setSelectedUserId(otherUserId?.toString() || null);
+            setSelectedUserId(otherUserId || null);
         } else {
             setSelectedUserId(null);
         }

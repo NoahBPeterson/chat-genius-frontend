@@ -6,7 +6,7 @@ import { jwtDecode } from 'jwt-decode';
 
 interface ThreadViewProps {
     thread: Thread;
-    channelId: string;
+    channelId: number;
     wsRef: React.RefObject<WebSocket>;
     onClose: () => void;
     allMessages: Message[];
