@@ -83,6 +83,14 @@ const MainPage: React.FC = () => {
     };
 
     useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            const decoded: { role: string } = jwtDecode(token);
+            setUserRole(decoded.role);
+        } else {
+            navigate('/login');
+        }
+
         fetchChannels();
         fetchUsers();
     }, [navigate]);

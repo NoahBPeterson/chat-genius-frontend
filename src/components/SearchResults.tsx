@@ -7,7 +7,7 @@ interface SearchResultsProps {
     channelName?: string;
 }
 
-const SearchResults: React.FC<SearchResultsProps> = ({ messages, channelName }) => {
+const SearchResults: React.FC<SearchResultsProps> = ({ messages }) => {
     const [searchParams] = useSearchParams();
     const query = searchParams.get('q') || '';
 
