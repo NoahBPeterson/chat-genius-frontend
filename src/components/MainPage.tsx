@@ -16,7 +16,7 @@ const MainPage: React.FC = () => {
     const [channels, setChannels] = useState<any[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [selectedChannelId, setSelectedChannelId] = useState<string>("1");
-    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
     const [isDM, setIsDM] = useState(false);
     const [newChannelName, setNewChannelName] = useState<string>('');
     const [userRole, setUserRole] = useState<string | null>(null);
@@ -373,7 +373,7 @@ const MainPage: React.FC = () => {
         }
     };
 
-    const handleUserSelect = async (userId: string) => {
+    const handleUserSelect = async (userId: number) => {
         try {
             const response = await API_Client.post(`/api/dm/${userId}`);
             const channelId = response.data.id.toString();
@@ -639,7 +639,7 @@ const MainPage: React.FC = () => {
                                     {users.map(user => {
                                         const token = localStorage.getItem('token');
                                         if (!token) return null;
-                                        const currentUserId = jwtDecode<JWTPayload>(token).userId.toString();
+                                        const currentUserId = jwtDecode<JWTPayload>(token).userId;
                                         if (user.id === currentUserId) {
                                             return (
                                                 <UserStatus 

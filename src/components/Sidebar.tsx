@@ -8,7 +8,7 @@ interface SidebarProps {
     channels: any[];
     users: User[];
     onChannelSelect: (channelId: string) => void;
-    onUserSelect: (userId: string) => void;
+    onUserSelect: (userId: number) => void;
     setIsDM: (isDM: boolean) => void;
     wsRef: React.RefObject<WebSocket>;
 }

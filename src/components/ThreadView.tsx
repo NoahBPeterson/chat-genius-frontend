@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Thread, Message, User } from '../types/Types';
+import { Thread, Message, User, JWTPayload } from '../types/Types';
 import MessageContent from './MessageContent';
 import API_Client from '../API_Client';
+import { jwtDecode } from 'jwt-decode';
 
 interface ThreadViewProps {
     thread: Thread;
@@ -24,6 +25,21 @@ const ThreadView: React.FC<ThreadViewProps> = ({
     const [newMessage, setNewMessage] = useState('');
     const [isTyping, setIsTyping] = useState(false);
     const typingTimeoutRef = useRef<NodeJS.Timeout>();
+    const threadMessagesRef = useRef<HTMLDivElement>(null);
+
+    const scrollToBottom = () => {
+        if (threadMessagesRef.current) {
+            threadMessagesRef.current.scrollTo({
+                top: threadMessagesRef.current.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+    };
+
+    useEffect(() => {
+        // Scroll to bottom when messages change
+        scrollToBottom();
+    }, [messages]);
 
     useEffect(() => {
         const fetchThreadMessages = async () => {
@@ -106,6 +122,8 @@ const ThreadView: React.FC<ThreadViewProps> = ({
                 }));
             }
             setNewMessage('');
+            // Scroll to bottom after sending
+            setTimeout(scrollToBottom, 100);
         }
     };
 
@@ -168,7 +186,7 @@ const ThreadView: React.FC<ThreadViewProps> = ({
                                     </span>
                                 </div>
                                 <div className="mt-1 text-white">
-                                    <MessageContent message={parentMessage} wsRef={wsRef} />
+                                    <MessageContent message={parentMessage} wsRef={wsRef} users={users} />
                                 </div>
                             </div>
                         </div>
@@ -177,7 +195,10 @@ const ThreadView: React.FC<ThreadViewProps> = ({
             })()}
 
             {/* Thread Messages */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div 
+                ref={threadMessagesRef}
+                className="flex-1 overflow-y-auto p-4"
+            >
                 <div className="space-y-4">
                     {thread.id === -1 ? (
                         <div className="text-gray-400 text-center">Start the thread by sending a message</div>
@@ -197,7 +218,7 @@ const ThreadView: React.FC<ThreadViewProps> = ({
                                     </span>
                                 </div>
                                 <div className="mt-1 text-white">
-                                    <MessageContent message={message} wsRef={wsRef} />
+                                    <MessageContent message={message} wsRef={wsRef} users={users} />
                                 </div>
                             </div>
                         ))
@@ -229,7 +250,11 @@ const ThreadView: React.FC<ThreadViewProps> = ({
 
             {/* Add typing indicators */}
             {(() => {
-                const typingUsers = users.filter(user => user.is_typing?.threads?.[thread.id]);
+                const currentUserId = Number(jwtDecode<JWTPayload>(localStorage.getItem('token') as string).userId);
+                const typingUsers = users.filter(user => 
+                    user.is_typing?.threads?.[thread.id] && 
+                    user.id !== currentUserId
+                );
                 if (typingUsers.length === 0) return null;
                 
                 const names = typingUsers.map(user => user.display_name || user.email);
