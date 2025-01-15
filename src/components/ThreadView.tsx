@@ -60,6 +60,7 @@ const ThreadView: React.FC<ThreadViewProps> = ({
             }
         };
 
+        const ws = wsRef.current;
         const handleWebSocketMessage = (event: MessageEvent) => {
             const data = JSON.parse(event.data);
             if (data.type === 'thread_message') {
@@ -92,12 +93,9 @@ const ThreadView: React.FC<ThreadViewProps> = ({
             }
         };
 
-        if (thread.id !== -1) {
-            fetchThreadMessages();
-        }
-        wsRef.current?.addEventListener('message', handleWebSocketMessage);
-        return () => wsRef.current?.removeEventListener('message', handleWebSocketMessage);
-    }, [thread.id, thread.parent_message_id, wsRef]);
+        ws?.addEventListener('message', handleWebSocketMessage);
+        return () => ws?.removeEventListener('message', handleWebSocketMessage);
+    }, [thread, wsRef]);
 
     const handleSendMessage = () => {
         if (!newMessage.trim()) return;
@@ -186,7 +184,7 @@ const ThreadView: React.FC<ThreadViewProps> = ({
                                     </span>
                                 </div>
                                 <div className="mt-1 text-white">
-                                    <MessageContent message={parentMessage} wsRef={wsRef} users={users} />
+                                    <MessageContent message={parentMessage} users={users} />
                                 </div>
                             </div>
                         </div>
@@ -218,7 +216,7 @@ const ThreadView: React.FC<ThreadViewProps> = ({
                                     </span>
                                 </div>
                                 <div className="mt-1 text-white">
-                                    <MessageContent message={message} wsRef={wsRef} users={users} />
+                                    <MessageContent message={message} users={users} />
                                 </div>
                             </div>
                         ))

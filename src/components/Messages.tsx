@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Channel, Message, Thread } from '../types/Types';
 import { jwtDecode } from 'jwt-decode';
 import { User, JWTPayload } from '../types/Types';
@@ -178,6 +178,26 @@ const Messages: React.FC<MessagesProps> = ({
         }
     };
 
+    const handleCreateThread = useCallback((messageId: number) => {
+        // Find the message that will start the thread
+        const message = messages.find(msg => msg.id === messageId);
+
+        if (message) {
+            const tempThread: Thread = {
+                id: message.thread?.id || -1,
+                channel_id: Number(channelId),
+                parent_message_id: message.id,
+                created_at: message.created_at,
+                last_reply_at: message.thread?.last_reply_at || message.created_at,
+                thread_starter_content: message.content,
+                thread_starter_name: message.display_name,
+                thread_starter_id: Number(message.user_id),
+                reply_count: message.thread?.reply_count || 0
+            };
+            setSelectedThread(tempThread);
+        }
+    }, [messages, channelId, setSelectedThread]);
+
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const messageId = Number(urlParams.get('message'));
@@ -209,27 +229,10 @@ const Messages: React.FC<MessagesProps> = ({
             // Only scroll if there's no specific message to highlight
             scrollToBottom(true);
         }
-    }, [messages, channelId]);
-
-    const getChannelName = (channelId: number) => {
-        const channel = channels.find(c => c.id == channelId);
-        if (!channel) return 'Unknown Channel';
-
-        if (channel.is_dm) {
-            const token = localStorage.getItem('token');
-            if (!token) return 'Unknown User';
-            
-            const currentUserId = Number(jwtDecode<JWTPayload>(token).userId);
-            const otherUserId = channel.dm_participants.find((id: number) => id !== currentUserId);
-            
-            const otherUser = users.find(u => Number(u.id) === otherUserId);
-            return otherUser?.display_name ?? otherUser?.email ?? 'Unknown User';
-        }
-
-        return channel.name;
-    };
+    }, [messages, channelId, handleCreateThread]);
 
     useEffect(() => {
+        const ws = wsRef.current;
         const handleWebSocketMessage = (event: MessageEvent) => {
             const data = JSON.parse(event.data);
             if (data.type === 'thread_created' && data.thread.channel_id === Number(channelId)) {
@@ -254,28 +257,26 @@ const Messages: React.FC<MessagesProps> = ({
             }
         };
 
-        wsRef.current?.addEventListener('message', handleWebSocketMessage);
-        return () => wsRef.current?.removeEventListener('message', handleWebSocketMessage);
-    }, [channelId, setMessages]);
+        ws?.addEventListener('message', handleWebSocketMessage);
+        return () => ws?.removeEventListener('message', handleWebSocketMessage);
+    }, [channelId, wsRef, setMessages]);
 
-    const handleCreateThread = (messageId: number) => {
-        // Find the message that will start the thread
-        const message = messages.find(msg => msg.id === messageId);
+    const getChannelName = (channelId: number) => {
+        const channel = channels.find(c => c.id == channelId);
+        if (!channel) return 'Unknown Channel';
 
-        if (message) {
-            const tempThread: Thread = {
-                id: message.thread?.id || -1,
-                channel_id: Number(channelId),
-                parent_message_id: message.id,
-                created_at: message.created_at,
-                last_reply_at: message.thread?.last_reply_at || message.created_at,
-                thread_starter_content: message.content,
-                thread_starter_name: message.display_name,
-                thread_starter_id: Number(message.user_id),
-                reply_count: message.thread?.reply_count || 0
-            };
-            setSelectedThread(tempThread);
+        if (channel.is_dm) {
+            const token = localStorage.getItem('token');
+            if (!token) return 'Unknown User';
+            
+            const currentUserId = Number(jwtDecode<JWTPayload>(token).userId);
+            const otherUserId = channel.dm_participants.find((id: number) => id !== currentUserId);
+            
+            const otherUser = users.find(u => Number(u.id) === otherUserId);
+            return otherUser?.display_name ?? otherUser?.email ?? 'Unknown User';
         }
+
+        return channel.name;
     };
 
     return (
@@ -380,7 +381,7 @@ const Messages: React.FC<MessagesProps> = ({
                                                 }
                                             }}
                                         >
-                                            <MessageContent message={message} wsRef={wsRef} users={users} />
+                                            <MessageContent message={message} users={users} />
                                         </div>
                                     </div>
                                 </li>

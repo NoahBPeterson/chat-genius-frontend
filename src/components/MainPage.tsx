@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Messages from './Messages';
@@ -28,30 +28,19 @@ const MainPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
-    // Token validation effect
-    useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (!token) {
-            navigate('/login');
-            return;
-        }
-
+    // Add this function to fetch messages via REST API
+    const fetchMessages = useCallback(async (channelId: number) => {
         try {
-            const decoded = jwtDecode<JWTPayload>(token);
-            setUserRole(decoded.role);
+            const response = await API_Client.get(`/api/channels/${channelId}/messages`);
+            if (response.status === 200) {
+                setMessages(response.data);
+            }
         } catch (error) {
-            console.error('Invalid token:', error);
-            localStorage.removeItem('token');
-            navigate('/login');
+            console.error('Error fetching messages:', error);
         }
-    }, [navigate]);
+    }, []);
 
-    // Update the ref whenever selectedChannelId changes
-    useEffect(() => {
-        currentChannelRef.current = selectedChannelId;
-    }, [selectedChannelId]);
-
-    const fetchChannels = async () => {
+    const fetchChannels = useCallback(async () => {
         try {
             const response = await API_Client.get('/api/channels');
             if (response.status === 200) {
@@ -64,36 +53,58 @@ const MainPage: React.FC = () => {
             }
         } catch (error) {
             console.error('Error fetching channels:', error);
-            navigate('/login');
         }
-    };
+    }, [fetchMessages]);
 
-    const fetchUsers = async () => {
+    const fetchUsers = useCallback(async () => {
         try {
             const response = await API_Client.get('/api/users');
             if (response.status === 200) {
                 setUsers(response.data);
-            } else {
-                navigate('/login');
             }
         } catch (error) {
             console.error('Error fetching users:', error);
-            navigate('/login');
         }
-    };
+    }, []);
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            const decoded: { role: string } = jwtDecode(token);
-            setUserRole(decoded.role);
-        } else {
+        const initializeData = async () => {
+            try {
+                await fetchChannels();
+                await fetchUsers();
+            } catch (error) {
+                console.error('Error initializing data:', error);
+            }
+        };
+
+        initializeData();
+    }, [fetchChannels, fetchUsers]);
+
+    useEffect(() => {
+        const handleTokenError = () => {
+            localStorage.removeItem('token');
             navigate('/login');
+        };
+
+        const token = localStorage.getItem('token');
+        if (!token) {
+            handleTokenError();
+            return;
         }
 
-        fetchChannels();
-        fetchUsers();
+        try {
+            const decoded = jwtDecode<JWTPayload>(token);
+            setUserRole(decoded.role);
+        } catch (error) {
+            console.error('Invalid token:', error);
+            handleTokenError();
+        }
     }, [navigate]);
+
+    // Update the ref whenever selectedChannelId changes
+    useEffect(() => {
+        currentChannelRef.current = selectedChannelId;
+    }, [selectedChannelId]);
 
     useEffect(() => {
         const connectWebSocket = () => {
@@ -144,20 +155,22 @@ const MainPage: React.FC = () => {
                         }
                         break;
                     case 'new_message':
-                        const messageChannelStr = data.message.channel_id;
-                        const selectedChannelStr = currentChannelRef.current;
-                        // Don't add messages for search results view
-                        if (currentChannelRef.current !== SEARCH_CHANNEL_ID && 
-                            messageChannelStr === selectedChannelStr) {
-                            setMessages(prev => {
-                                const messageExists = prev.some(msg => msg.id === data.message.id);
-                                if (messageExists) {
-                                    return prev;
-                                }
-                                return [...prev, data.message];
-                            });
-                        } else {
-                            console.log('Skipping message - channel mismatch or search view');
+                        {
+                            const messageChannelStr = data.message.channel_id;
+                            const selectedChannelStr = currentChannelRef.current;
+                            // Don't add messages for search results view
+                            if (currentChannelRef.current !== SEARCH_CHANNEL_ID && 
+                                messageChannelStr === selectedChannelStr) {
+                                setMessages(prev => {
+                                    const messageExists = prev.some(msg => msg.id === data.message.id);
+                                    if (messageExists) {
+                                        return prev;
+                                    }
+                                    return [...prev, data.message];
+                                });
+                            } else {
+                                console.log('Skipping message - channel mismatch or search view');
+                            }
                         }
                         break;
                     case 'presence_update':
@@ -346,7 +359,7 @@ const MainPage: React.FC = () => {
                 wsRef.current = null;
             }
         };
-    }, []); // Empty dependency array since we want this to run only once on mount
+    }, [navigate, selectedChannelId]);
 
     // Function to send messages through WebSocket
     const sendMessage = (content: string) => {
@@ -429,18 +442,6 @@ const MainPage: React.FC = () => {
         navigate('/', { replace: true });
         
         await fetchMessages(channelId);
-    };
-
-    // Add this function to fetch messages via REST API
-    const fetchMessages = async (channelId: number) => {
-        try {
-            const response = await API_Client.get(`/api/channels/${channelId}/messages`);
-            if (response.status === 200) {
-                setMessages(response.data);
-            }
-        } catch (error) {
-            console.error('Error fetching messages:', error);
-        }
     };
 
     const handleSearch = async (searchQuery: string) => {
