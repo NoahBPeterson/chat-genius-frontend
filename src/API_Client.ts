@@ -30,7 +30,7 @@ API_Client.interceptors.request.use(
         return config;
     },
     error => {
-        localStorage.setItem('token', '');
+        localStorage.removeItem('token');
         return Promise.reject(error);
     }
 );

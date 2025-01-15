@@ -250,7 +250,10 @@ const ThreadView: React.FC<ThreadViewProps> = ({
 
             {/* Add typing indicators */}
             {(() => {
-                const currentUserId = Number(jwtDecode<JWTPayload>(localStorage.getItem('token') as string).userId);
+                const token = localStorage.getItem('token');
+                if (!token) return null;
+                
+                const currentUserId = Number(jwtDecode<JWTPayload>(token).userId);
                 const typingUsers = users.filter(user => 
                     user.is_typing?.threads?.[thread.id] && 
                     user.id !== currentUserId

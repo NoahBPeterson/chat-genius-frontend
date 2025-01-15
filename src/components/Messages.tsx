@@ -216,7 +216,10 @@ const Messages: React.FC<MessagesProps> = ({
         if (!channel) return 'Unknown Channel';
 
         if (channel.is_dm) {
-            const currentUserId = Number(jwtDecode<JWTPayload>(localStorage.getItem('token') as string).userId);
+            const token = localStorage.getItem('token');
+            if (!token) return 'Unknown User';
+            
+            const currentUserId = Number(jwtDecode<JWTPayload>(token).userId);
             const otherUserId = channel.dm_participants.find((id: number) => id !== currentUserId);
             
             const otherUser = users.find(u => Number(u.id) === otherUserId);
@@ -389,7 +392,10 @@ const Messages: React.FC<MessagesProps> = ({
                 {!isSearchResults && (
                     <div className="border-t border-purple-700 bg-purple-900">
                         {(() => {
-                            const currentUserId = Number(jwtDecode<JWTPayload>(localStorage.getItem('token') as string).userId);
+                            const token = localStorage.getItem('token');
+                            if (!token) return null;
+                            
+                            const currentUserId = Number(jwtDecode<JWTPayload>(token).userId);
                             const typingUsers = users.filter(user => 
                                 user.is_typing?.channels?.[channelId] && 
                                 user.id !== currentUserId
