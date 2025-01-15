@@ -6,10 +6,7 @@ import FileUpload from './FileUpload';
 import MessageContent from './MessageContent';
 import ThreadView from './ThreadView';
 import { useNavigate } from 'react-router-dom';
-import MessageReactions from './MessageReactions';
 import MentionAutocomplete from './MentionAutocomplete';
-import API_Client from '../API_Client';
-import AvatarResponse from './AvatarResponse';
 
 interface MessagesProps {
     channelId: string;
