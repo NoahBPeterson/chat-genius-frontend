@@ -28,6 +28,24 @@ const MainPage: React.FC = () => {
     const [searchParams] = useSearchParams();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
+    // Token validation effect
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            navigate('/login');
+            return;
+        }
+
+        try {
+            const decoded = jwtDecode<JWTPayload>(token);
+            setUserRole(decoded.role);
+        } catch (error) {
+            console.error('Invalid token:', error);
+            localStorage.removeItem('token');
+            navigate('/login');
+        }
+    }, [navigate]);
+
     // Update the ref whenever selectedChannelId changes
     useEffect(() => {
         currentChannelRef.current = selectedChannelId;
@@ -65,14 +83,6 @@ const MainPage: React.FC = () => {
     };
 
     useEffect(() => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            const decoded: { role: string } = jwtDecode(token);
-            setUserRole(decoded.role);
-        } else {
-            navigate('/login');
-        }
-
         fetchChannels();
         fetchUsers();
     }, [navigate]);
