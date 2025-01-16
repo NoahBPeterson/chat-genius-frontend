@@ -7,6 +7,7 @@ import MessageContent from './MessageContent';
 import ThreadView from './ThreadView';
 import { useNavigate } from 'react-router-dom';
 import MentionAutocomplete from './MentionAutocomplete';
+import MessageReactions from './MessageReactions';
 
 interface MessagesProps {
     channelId: number;
@@ -254,6 +255,25 @@ const Messages: React.FC<MessagesProps> = ({
                         return msg;
                     })
                 );
+            } else if (data.type === 'reaction_update') {
+                setMessages(prevMessages => {
+                    const updatedMessages = prevMessages.map(msg => {
+                        if (msg.id === data.messageId) {
+                            // Transform the reactions data to match the MessageReaction[] type
+                            const transformedReactions = Object.entries(data.reactions as { [emoji: string]: { count: number; users: string[] } }).map(([emoji, reactionData]) => ({
+                                emoji,
+                                count: reactionData.count,
+                                users: reactionData.users
+                            }));
+                            return {
+                                ...msg,
+                                reactions: transformedReactions
+                            };
+                        }
+                        return msg;
+                    });
+                    return updatedMessages;
+                });
             }
         };
 
@@ -320,7 +340,7 @@ const Messages: React.FC<MessagesProps> = ({
                                     id={`message-${message.id}`}
                                     className={`p-2 rounded text-white transition-all duration-300 ease-in-out
                                         ${isSearchResults ? 'cursor-pointer hover:bg-purple-600' : ''}
-                                        ${message.is_ai_response ? 'bg-gradient-to-r from-purple-900 to-purple-800 border border-purple-600' : 'bg-purple-700 hover:bg-purple-600'}`}
+                                        ${message.is_ai_generated ? 'bg-gradient-to-r from-purple-900 to-purple-800 border border-purple-600' : 'bg-purple-700 hover:bg-purple-600'}`}
                                 >
                                     <div className="flex flex-col">
                                         {isSearchResults && (
@@ -336,7 +356,7 @@ const Messages: React.FC<MessagesProps> = ({
                                         )}
                                         <div className="flex items-baseline gap-2">
                                             <div className="flex items-center gap-2">
-                                                {message.is_ai_response && <span className="text-lg">🤖</span>}
+                                                {message.is_ai_generated && <span className="text-lg">🤖</span>}
                                                 <span className="font-bold text-purple-300">
                                                     {message.display_name}
                                                 </span>
@@ -383,6 +403,24 @@ const Messages: React.FC<MessagesProps> = ({
                                         >
                                             <MessageContent message={message} users={users} />
                                         </div>
+                                        <MessageReactions
+                                            messageId={message.id}
+                                            reactions={(() => {
+                                                // If reactions is already in object format, use it directly
+                                                if (message.reactions && !Array.isArray(message.reactions)) {
+                                                    return message.reactions;
+                                                }
+                                                // Otherwise transform from array format
+                                                return Array.isArray(message.reactions) ? message.reactions.reduce((acc, reaction) => ({
+                                                    ...acc,
+                                                    [reaction.emoji]: {
+                                                        count: reaction.count,
+                                                        users: reaction.users
+                                                    }
+                                                }), {}) : {};
+                                            })()}
+                                            wsRef={wsRef}
+                                        />
                                     </div>
                                 </li>
                             ))}

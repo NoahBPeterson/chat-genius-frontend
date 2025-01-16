@@ -33,6 +33,13 @@ const MainPage: React.FC = () => {
         try {
             const response = await API_Client.get(`/api/channels/${channelId}/messages`);
             if (response.status === 200) {
+                console.log('Fetched messages data:', response.data);
+                console.log('Sample message fields:', response.data[0] ? {
+                    id: response.data[0].id,
+                    content: response.data[0].content,
+                    is_ai_response: response.data[0].is_ai_response,
+                    display_name: response.data[0].display_name
+                } : 'No messages');
                 setMessages(response.data);
             }
         } catch (error) {

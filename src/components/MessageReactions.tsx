@@ -42,7 +42,7 @@ const MessageReactions: React.FC<MessageReactionsProps> = ({ messageId, reaction
                         className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs rounded-full border transition-colors duration-150
                             ${data.users.includes(currentUserId) 
                                 ? 'bg-purple-500 border-purple-400 text-white hover:bg-purple-600' 
-                                : 'bg-gray-800 border-gray-600 text-gray-300 hover:bg-gray-700'}`}
+                                : 'bg-purple-900 border-purple-700 text-white hover:bg-purple-800'}`}
                         title={`${data.count} ${data.count === 1 ? 'reaction' : 'reactions'}`}
                     >
                         <span>{emoji}</span>
@@ -53,19 +53,19 @@ const MessageReactions: React.FC<MessageReactionsProps> = ({ messageId, reaction
 
             <button
                 onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                className="text-gray-400 hover:text-gray-600 rounded-full w-5 h-5 min-w-[1.25rem] flex items-center justify-center hover:bg-gray-400 text-sm leading-none"
+                className="text-white hover:text-purple-300 rounded-full w-5 h-5 min-w-[1.25rem] flex items-center justify-center hover:bg-purple-700 text-sm leading-none"
             >
                 +
             </button>
 
             {showEmojiPicker && (
-                <div className="absolute top-full left-0 bg-gray-700 border rounded-lg shadow-lg p-1 mt-1 z-10">
+                <div className="absolute bottom-full left-0 bg-purple-900 border border-purple-700 rounded-lg shadow-lg p-1 mb-1 z-10">
                     <div className="flex gap-1">
                         {COMMON_EMOJIS.map(emoji => (
                             <button
                                 key={emoji}
                                 onClick={() => handleReactionClick(emoji)}
-                                className="hover:bg-gray-100 p-1.5 rounded text-sm"
+                                className="hover:bg-purple-700 p-1.5 rounded text-sm"
                             >
                                 {emoji}
                             </button>

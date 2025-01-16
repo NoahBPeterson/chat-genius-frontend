@@ -18,7 +18,7 @@ export interface Message {
     is_thread_parent?: boolean;
     timestamp?: string;
     reactions?: MessageReaction[];
-    is_ai_response?: boolean;
+    is_ai_generated?: boolean;
 }
 
 export interface JWTPayload {
