@@ -5,21 +5,19 @@ interface SettingsMenuProps {
     isOpen: boolean;
     setIsOpen: (isOpen: boolean) => void;
     wsRef: React.RefObject<WebSocket>;
+    setToken?: (token: string | null) => void;
 }
 
-const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, setIsOpen, wsRef }) => {
+const SettingsMenu: React.FC<SettingsMenuProps> = ({ isOpen, setIsOpen, wsRef, setToken }) => {
     const navigate = useNavigate();
 
     const handleLogout = () => {
-        // Close WebSocket connection
-        if (wsRef.current) {
-            wsRef.current.close();
-        }
-        // Remove token
+        wsRef.current?.close();
         localStorage.removeItem('token');
-        // Navigate to landing page
+        if (setToken) {
+            setToken(null);
+        }
         navigate('/');
-        // Close menu
         setIsOpen(false);
     };
 

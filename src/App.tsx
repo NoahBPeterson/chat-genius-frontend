@@ -10,13 +10,18 @@ const App: React.FC = () => {
     const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
 
     useEffect(() => {
-        const newToken = localStorage.getItem('token');
-        setToken(newToken);
+        const handleStorageChange = () => {
+            const newToken = localStorage.getItem('token');
+            setToken(newToken);
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
     const renderProtectedRoute = () => (
         <ProtectedRoute>
-            <MainPage />
+            <MainPage setToken={setToken} />
         </ProtectedRoute>
     );
 

@@ -14,7 +14,11 @@ import SettingsMenu from './SettingsMenu';
 // Add a special channel ID for search results
 const SEARCH_CHANNEL_ID: number = -9;
 
-const MainPage: React.FC = () => {
+interface MainPageProps {
+    setToken: (token: string | null) => void;
+}
+
+const MainPage: React.FC<MainPageProps> = ({ setToken }) => {
     const [channels, setChannels] = useState<Channel[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [selectedChannelId, setSelectedChannelId] = useState<number>(1);
@@ -667,6 +671,7 @@ const MainPage: React.FC = () => {
                                     isOpen={isSettingsMenuOpen} 
                                     setIsOpen={setIsSettingsMenuOpen}
                                     wsRef={wsRef}
+                                    setToken={setToken}
                                 />
                             </div>
                             <div className="flex items-center gap-2">
