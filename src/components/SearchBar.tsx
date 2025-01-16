@@ -1,39 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef, useImperativeHandle, useRef } from 'react';
 
 interface SearchBarProps {
     onSearch: (query: string) => void;
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({ onSearch }) => {
-    const [query, setQuery] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
+export interface SearchBarRef {
+    clear: () => void;
+}
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (query.trim()) {
-            setIsLoading(true);
-            try {
-                await onSearch(query);
-            } finally {
-                setIsLoading(false);
+const SearchBar = forwardRef<SearchBarRef, SearchBarProps>(({ onSearch }, ref) => {
+    const [searchQuery, setSearchQuery] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useImperativeHandle(ref, () => ({
+        clear: () => {
+            setSearchQuery('');
+            if (inputRef.current) {
+                inputRef.current.value = '';
             }
+        }
+    }));
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (searchQuery.trim()) {
+            onSearch(searchQuery.trim());
         }
     };
 
     return (
-        <form onSubmit={handleSubmit} className="px-4 py-2">
+        <form onSubmit={handleSubmit} className="p-4 border-b border-gray-700">
             <input
+                ref={inputRef}
                 type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={isLoading ? "Searching..." : "Search messages..."}
-                disabled={isLoading}
-                className="w-full p-2 rounded bg-purple-700 text-white placeholder-purple-300 
-                         border border-purple-600 focus:outline-none focus:border-purple-500
-                         disabled:opacity-75"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search messages..."
+                className="w-full p-2 rounded bg-purple-900 text-white placeholder-gray-400"
             />
         </form>
     );
-};
+});
 
 export default SearchBar; 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { Channel, Message, Thread } from '../types/Types';
 import { jwtDecode } from 'jwt-decode';
 import { User, JWTPayload } from '../types/Types';
@@ -25,7 +25,11 @@ interface MessagesProps {
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 }
 
-const Messages: React.FC<MessagesProps> = ({ 
+export interface MessagesRef {
+    focus: () => void;
+}
+
+const Messages = forwardRef<MessagesRef, MessagesProps>(({ 
     channelId, 
     channelName, 
     isDM,
@@ -39,7 +43,24 @@ const Messages: React.FC<MessagesProps> = ({
     onTyping,
     wsRef,
     setMessages
-}) => {
+}, ref) => {
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    useImperativeHandle(ref, () => ({
+        focus: () => {
+            if (inputRef.current) {
+                inputRef.current.focus();
+            }
+        }
+    }));
+
+    // Focus input on mount
+    useEffect(() => {
+        if (inputRef.current && !isSearchResults) {
+            inputRef.current.focus();
+        }
+    }, [isSearchResults]);
+
     const [newMessage, setNewMessage] = useState<string>('');
     const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
     const [hasNewMessages, setHasNewMessages] = useState<boolean>(false);
@@ -59,7 +80,6 @@ const Messages: React.FC<MessagesProps> = ({
         position: { bottom: 0, left: 0 },
         startIndex: 0
     });
-    const inputRef = useRef<HTMLInputElement>(null);
 
     const scrollToBottom = (force: boolean = false) => {
         if (highlightedMessageId.current && !force) {
@@ -226,11 +246,16 @@ const Messages: React.FC<MessagesProps> = ({
                     }, 500); // Wait for thread view to open
                 }
             }
+            
+            // Clear URL parameters after highlighting
+            setTimeout(() => {
+                navigate('/', { replace: true });
+            }, 2500); // Wait for highlighting animation to complete
         } else {
             // Only scroll if there's no specific message to highlight
             scrollToBottom(true);
         }
-    }, [messages, channelId, handleCreateThread]);
+    }, [handleCreateThread, messages, navigate]);
 
     useEffect(() => {
         const ws = wsRef.current;
@@ -279,7 +304,7 @@ const Messages: React.FC<MessagesProps> = ({
 
         ws?.addEventListener('message', handleWebSocketMessage);
         return () => ws?.removeEventListener('message', handleWebSocketMessage);
-    }, [channelId, wsRef, setMessages]);
+    }, [channelId, wsRef, setMessages, setSelectedThread]);
 
     const getChannelName = (channelId: number) => {
         const channel = channels.find(c => c.id == channelId);
@@ -302,7 +327,7 @@ const Messages: React.FC<MessagesProps> = ({
     return (
         <div className="flex h-screen w-full">
             <div className="flex flex-col flex-grow">
-                <div className="sticky top-0 z-10 p-4 bg-purple-700">
+                <div className="sticky top-0 z-10 p-4 bg-purple-900 border-b border-purple-600 shadow-lg">
                     <div className="flex justify-between items-center">
                         <h2 className="text-lg font-semibold text-white">
                             {isSearchResults ? (
@@ -358,7 +383,7 @@ const Messages: React.FC<MessagesProps> = ({
                                             <div className="flex items-center gap-2">
                                                 {message.is_ai_generated && <span className="text-lg">🤖</span>}
                                                 <span className="font-bold text-purple-300">
-                                                    {message.display_name}
+                                                    {message.is_ai_generated ? `AI Avatar of ${message.display_name}` : message.display_name}
                                                 </span>
                                             </div>
                                             <span className="text-xs text-gray-400">
@@ -507,6 +532,6 @@ const Messages: React.FC<MessagesProps> = ({
             )}
         </div>
     );
-};
+});
 
 export default Messages;

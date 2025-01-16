@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import Messages from './Messages';
+import Messages, { MessagesRef } from './Messages';
 import API_Client from '../API_Client';
 import { jwtDecode } from "jwt-decode";
 import { Message, JWTPayload, User, Thread, Channel } from '../types/Types';
-import SearchBar from './SearchBar';
+import SearchBar, { SearchBarRef } from './SearchBar';
 import ProfileMenu from './ProfileMenu';
 import UserStatus from './UserStatus';
+import { AxiosError } from 'axios';
 
 // Add a special channel ID for search results
 const SEARCH_CHANNEL_ID: number = -9;
@@ -27,6 +28,8 @@ const MainPage: React.FC = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+    const messagesRef = useRef<MessagesRef>(null);
+    const searchBarRef = useRef<SearchBarRef>(null);
 
     // Add this function to fetch messages via REST API
     const fetchMessages = useCallback(async (channelId: number) => {
@@ -434,21 +437,35 @@ const MainPage: React.FC = () => {
     };
 
     const handleChannelSelect = async (channelId: number) => {
-        // Update ref immediately
-        currentChannelRef.current = channelId;
-        
-        // Clear messages first
-        setMessages([]);
-        
-        // Update channel selection state
+        if (channelId === selectedChannelId) {
+            // If we're already in this channel, just scroll to bottom
+            const messagesContainer = document.querySelector('.overflow-y-auto');
+            if (messagesContainer) {
+                messagesContainer.scrollTo({
+                    top: messagesContainer.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+            messagesRef.current?.focus();
+            return;
+        }
+
         setSelectedChannelId(channelId);
-        setSelectedUserId(null);
-        setIsDM(false);
+        setIsDM(channels.find(c => c.id === channelId)?.is_dm || false);
         
-        // Remove search query from URL
-        navigate('/', { replace: true });
-        
-        await fetchMessages(channelId);
+        try {
+            const response = await API_Client.get(`/api/channels/${channelId}/messages`);
+            if (response.status === 200) {
+                setMessages(response.data);
+                // Focus the input after messages are loaded
+                setTimeout(() => messagesRef.current?.focus(), 0);
+            }
+        } catch (error) {
+            console.error('Error fetching messages:', error);
+            if ((error as AxiosError).response?.status === 401) {
+                navigate('/login');
+            }
+        }
     };
 
     const handleSearch = async (searchQuery: string) => {
@@ -489,6 +506,9 @@ const MainPage: React.FC = () => {
             if (response.status === 200) {
                 const channelMessages = response.data;
                 setMessages(channelMessages);
+                
+                // Clear search bar when navigating to a message
+                searchBarRef.current?.clear();
                 
                 // If this is a thread message or has a parent message ID, navigate to its parent message and open the thread
                 const clickedMessage = channelMessages.find((m: Message) => String(m.id) === String(messageId));
@@ -603,7 +623,7 @@ const MainPage: React.FC = () => {
                 {/* Sidebar */}
                 <div className="w-1/5 min-w-[250px] bg-gray-800 text-white flex flex-col justify-between flex-shrink-0">
                     <div className="flex flex-col flex-grow overflow-hidden">
-                        <SearchBar onSearch={handleSearch} />
+                        <SearchBar ref={searchBarRef} onSearch={handleSearch} />
                         
                         {/* Admin Controls */}
                         {(userRole === 'member' || userRole === 'admin') && (
@@ -679,6 +699,7 @@ const MainPage: React.FC = () => {
                 <div className="flex-1">
                     {selectedChannelId && (
                         <Messages 
+                            ref={messagesRef}
                             channelId={selectedChannelId}
                             channelName={
                                 selectedChannelId === SEARCH_CHANNEL_ID 

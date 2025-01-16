@@ -26,6 +26,14 @@ const ThreadView: React.FC<ThreadViewProps> = ({
     const [isTyping, setIsTyping] = useState(false);
     const typingTimeoutRef = useRef<NodeJS.Timeout>();
     const threadMessagesRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Focus input on mount
+    useEffect(() => {
+        if (inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, []);
 
     const scrollToBottom = () => {
         if (threadMessagesRef.current) {
@@ -228,6 +236,7 @@ const ThreadView: React.FC<ThreadViewProps> = ({
             <div className="p-4 border-t border-gray-700">
                 <div className="flex items-center gap-2">
                     <input
+                        ref={inputRef}
                         type="text"
                         value={newMessage}
                         onChange={(e) => {
