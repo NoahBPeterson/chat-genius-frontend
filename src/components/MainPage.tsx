@@ -9,6 +9,7 @@ import SearchBar, { SearchBarRef } from './SearchBar';
 import ProfileMenu from './ProfileMenu';
 import UserStatus from './UserStatus';
 import { AxiosError } from 'axios';
+import SettingsMenu from './SettingsMenu';
 
 // Add a special channel ID for search results
 const SEARCH_CHANNEL_ID: number = -9;
@@ -30,19 +31,13 @@ const MainPage: React.FC = () => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const messagesRef = useRef<MessagesRef>(null);
     const searchBarRef = useRef<SearchBarRef>(null);
+    const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
 
     // Add this function to fetch messages via REST API
     const fetchMessages = useCallback(async (channelId: number) => {
         try {
             const response = await API_Client.get(`/api/channels/${channelId}/messages`);
             if (response.status === 200) {
-                console.log('Fetched messages data:', response.data);
-                console.log('Sample message fields:', response.data[0] ? {
-                    id: response.data[0].id,
-                    content: response.data[0].content,
-                    is_ai_response: response.data[0].is_ai_response,
-                    display_name: response.data[0].display_name
-                } : 'No messages');
                 setMessages(response.data);
             }
         } catch (error) {
@@ -129,13 +124,11 @@ const MainPage: React.FC = () => {
             }
 
             const baseUrl = `${window.location.host}`;
-            console.log('Baseurl:', baseUrl);
             if (baseUrl.includes('localhost')) {
                 wsRef.current = new WebSocket('ws://localhost:8080');
             } else {
                 wsRef.current = new WebSocket(`wss://${baseUrl}/ws`);
             }
-            //wsRef.current = new WebSocket(baseUrl);
 
             wsRef.current.onopen = () => {
                 console.log('WebSocket connected');
@@ -663,7 +656,19 @@ const MainPage: React.FC = () => {
                     {/* Footer */}
                     <div className="p-4 border-t border-gray-700 bg-gray-800">
                         <div className="flex items-center justify-between">
-                            <button className="hover:text-gray-400">⚙️</button>
+                            <div className="relative">
+                                <button 
+                                    className="hover:text-gray-400"
+                                    onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
+                                >
+                                    ⚙️
+                                </button>
+                                <SettingsMenu 
+                                    isOpen={isSettingsMenuOpen} 
+                                    setIsOpen={setIsSettingsMenuOpen}
+                                    wsRef={wsRef}
+                                />
+                            </div>
                             <div className="flex items-center gap-2">
                                 <div className="relative">
                                     <button 

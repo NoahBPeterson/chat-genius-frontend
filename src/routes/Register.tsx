@@ -14,7 +14,7 @@ const Register: React.FC = () => {
         try {
             const response = await API_Client.post('/api/register', { email, password, displayname });
             localStorage.setItem('token', response.data.token);
-            navigate('/login'); // Redirect to a default channel
+            navigate('/');
         } catch (error) {
             alert('Registration failed');
             console.error('Registration error:', error);
@@ -22,39 +22,49 @@ const Register: React.FC = () => {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="p-4 max-w-md mx-auto space-y-4">
-            <h1 className="text-xl font-bold">Register</h1>
-            <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="border rounded w-full p-2"
-            />
-            <input
-                type="text"
-                placeholder="Display Name"
-                value={displayname}
-                onChange={(e) => setDisplayname(e.target.value)}
-                className="border rounded w-full p-2"
-            />
-            <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="border rounded w-full p-2"
-            />
-            <Button variant="contained" color="primary" type="submit">
-                Register
-            </Button>
-            
-            <div className="text-center mt-4">
-                <Link to="/login" className="text-blue-500 hover:text-blue-700">
-                    Already have an account? Login here
-                </Link>
-            </div>
-        </form>
+        <div className="bg-purple-800 p-8 rounded-lg shadow-lg w-[800px]">
+            <h2 className="text-2xl font-bold mb-6 text-white text-center">Register</h2>
+            <form onSubmit={handleSubmit} className="space-y-4 max-w-[384px] mx-auto">
+                <input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full p-2 rounded bg-gray-900 text-white border border-purple-600 focus:outline-none focus:border-purple-400"
+                    required
+                />
+                <input
+                    type="text"
+                    placeholder="Display Name"
+                    value={displayname}
+                    onChange={(e) => setDisplayname(e.target.value)}
+                    className="w-full p-2 rounded bg-gray-900 text-white border border-purple-600 focus:outline-none focus:border-purple-400"
+                    required
+                />
+                <input
+                    type="password"
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full p-2 rounded bg-gray-900 text-white border border-purple-600 focus:outline-none focus:border-purple-400"
+                    required
+                />
+                <Button variant="contained" color="primary" type="submit">
+                    Register
+                </Button>
+                
+                <div className="text-center mt-4">
+                    <Link to="/login" className="text-blue-400 hover:text-blue-300">
+                        Already have an account? Login here
+                    </Link>
+                    <div className="mt-2">
+                        <Link to="/" className="text-purple-300 hover:text-purple-200">
+                            Back to home
+                        </Link>
+                    </div>
+                </div>
+            </form>
+        </div>
     );
 };
 
