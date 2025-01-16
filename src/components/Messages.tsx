@@ -415,7 +415,7 @@ const Messages = forwardRef<MessagesRef, MessagesProps>(({
                                             )}
                                         </div>
                                         <div 
-                                            className="mt-1 break-all whitespace-pre-wrap"
+                                            className="mt-1 break-words whitespace-pre-wrap [overflow-wrap:anywhere]"
                                             onClick={() => {
                                                 if (isSearchResults && onMessageClick) {
                                                     onMessageClick(
