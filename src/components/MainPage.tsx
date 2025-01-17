@@ -10,6 +10,8 @@ import ProfileMenu from './ProfileMenu';
 import UserStatus from './UserStatus';
 import { AxiosError } from 'axios';
 import SettingsMenu from './SettingsMenu';
+import { ProductivitySettings } from '../types/Types';
+import ProductivityTracker from './ProductivityTracker';
 
 // Add a special channel ID for search results
 const SEARCH_CHANNEL_ID: number = -9;
@@ -36,6 +38,13 @@ const MainPage: React.FC<MainPageProps> = ({ setToken }) => {
     const messagesRef = useRef<MessagesRef>(null);
     const searchBarRef = useRef<SearchBarRef>(null);
     const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
+    const [productivitySettings, setProductivitySettings] = useState<ProductivitySettings>({
+        tracking_enabled: false,
+        screen_capture_enabled: false,
+        webcam_capture_enabled: false,
+        break_reminder_interval: 1800
+    });
+    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
     // Add this function to fetch messages via REST API
     const fetchMessages = useCallback(async (channelId: number) => {
@@ -327,6 +336,14 @@ const MainPage: React.FC<MainPageProps> = ({ setToken }) => {
                             return msg;
                         }));
                         break;
+                    case 'settings_updated':
+                        if (data.success) {
+                            setProductivitySettings(prev => ({
+                                ...prev,
+                                ...data.settings
+                            }));
+                        }
+                        break;
                     case 'request_users':
                         console.log('Received request_users:', data);
                         setUsers(data.users);
@@ -614,9 +631,27 @@ const MainPage: React.FC<MainPageProps> = ({ setToken }) => {
         }
     };
 
+    // Get current user ID for ProductivityTracker
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            const userId = jwtDecode<JWTPayload>(token).userId;
+            setCurrentUserId(userId);
+        } else {
+            setCurrentUserId(null);
+        }
+    }, []); // Only run once on mount
+
     return (
         <div className="flex h-screen">
             <div className="flex h-screen w-screen">
+                {/* Add ProductivityTracker */}
+                <ProductivityTracker 
+                    wsRef={wsRef}
+                    userId={currentUserId || 0}
+                    settings={productivitySettings}
+                />
+
                 {/* Sidebar */}
                 <div className="w-1/5 min-w-[250px] bg-gray-800 text-white flex flex-col justify-between flex-shrink-0">
                     <div className="flex flex-col flex-grow overflow-hidden">
@@ -672,6 +707,8 @@ const MainPage: React.FC<MainPageProps> = ({ setToken }) => {
                                     setIsOpen={setIsSettingsMenuOpen}
                                     wsRef={wsRef}
                                     setToken={setToken}
+                                    settings={productivitySettings}
+                                    onSettingsChange={setProductivitySettings}
                                 />
                             </div>
                             <div className="flex items-center gap-2">

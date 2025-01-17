@@ -64,3 +64,10 @@ export interface MessageReaction {
     count: number;
     users: string[];
 }
+
+export interface ProductivitySettings {
+    tracking_enabled: boolean;
+    screen_capture_enabled: boolean;
+    webcam_capture_enabled: boolean;
+    break_reminder_interval: number;
+}
