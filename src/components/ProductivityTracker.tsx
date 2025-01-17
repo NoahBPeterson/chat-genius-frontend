@@ -25,7 +25,6 @@ const ProductivityTracker: React.FC<ProductivityTrackerProps> = ({
         const setupScreenCapture = async () => {
             if (settings.screen_capture_enabled && !screenStreamRef.current) {
                 try {
-                    console.log('Setting up screen capture stream...');
                     const stream = await navigator.mediaDevices.getDisplayMedia({
                         video: { displaySurface: 'monitor' }
                     });
@@ -34,7 +33,6 @@ const ProductivityTracker: React.FC<ProductivityTrackerProps> = ({
                     
                     // Handle stream ending
                     stream.getVideoTracks()[0].addEventListener('ended', () => {
-                        console.log('Screen sharing stopped');
                         screenStreamRef.current = null;
                         setHasScreenPermission(false);
                     });
@@ -70,16 +68,20 @@ const ProductivityTracker: React.FC<ProductivityTrackerProps> = ({
         const setupWebcam = async () => {
             if (settings.webcam_capture_enabled && !webcamStreamRef.current) {
                 try {
-                    console.log('Setting up webcam stream...');
                     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                     webcamStreamRef.current = stream;
                     setHasWebcamPermission(true);
-                    console.log('Webcam stream established');
 
                     // Handle stream ending
                     stream.getVideoTracks()[0].addEventListener('ended', () => {
-                        console.log('Webcam stopped');
-                        webcamStreamRef.current = null;
+                        console.log('Webcam stopped by user');
+                        if (webcamStreamRef.current) {
+                            webcamStreamRef.current.getTracks().forEach(track => {
+                                track.stop();
+                                console.log('Webcam track stopped');
+                            });
+                            webcamStreamRef.current = null;
+                        }
                         setHasWebcamPermission(false);
                     });
                 } catch (error) {
@@ -91,18 +93,21 @@ const ProductivityTracker: React.FC<ProductivityTrackerProps> = ({
 
         if (settings.webcam_capture_enabled && !webcamStreamRef.current) {
             setupWebcam();
-        } else if (!settings.webcam_capture_enabled) {
+        } else if (!settings.webcam_capture_enabled && webcamStreamRef.current) {
             // Cleanup when disabled
-            if (webcamStreamRef.current) {
-                webcamStreamRef.current.getTracks().forEach(track => track.stop());
-                webcamStreamRef.current = null;
-            }
+            webcamStreamRef.current.getTracks().forEach(track => {
+                track.stop();
+            });
+            webcamStreamRef.current = null;
             setHasWebcamPermission(false);
         }
 
+        // Cleanup on unmount or setting change
         return () => {
             if (webcamStreamRef.current) {
-                webcamStreamRef.current.getTracks().forEach(track => track.stop());
+                webcamStreamRef.current.getTracks().forEach(track => {
+                    track.stop();
+                });
                 webcamStreamRef.current = null;
                 setHasWebcamPermission(false);
             }
@@ -114,14 +119,13 @@ const ProductivityTracker: React.FC<ProductivityTrackerProps> = ({
             const data = JSON.parse(event.data);
             
             if (data.type === 'presence_update' && data.userId === userId) {
+
                 setStatus(data.status);
                 
                 // Play appropriate sound based on status
                 if (data.status === 'idle_and_not_working' && backToWorkAudioRef.current) {
-                    // Play "back to work" sound for idle status
                     backToWorkAudioRef.current.play().catch(console.error);
                 } else if (data.status === 'productive_working' && workedAudioRef.current) {
-                    // Play "worked" sound for productive status
                     workedAudioRef.current.play().catch(console.error);
                 }
             } else if (data.type === 'break_reminder' || data.type === 'productivity_reminder') {
@@ -154,21 +158,16 @@ const ProductivityTracker: React.FC<ProductivityTrackerProps> = ({
                 ws.removeEventListener('message', handleMessage);
             }
         };
-    }, [wsRef, userId]);
+    }, [wsRef, userId, status]);
 
     // Handle screen capture and webcam capture
     useEffect(() => {
         let captureInterval: NodeJS.Timeout | null = null;
 
         const captureAndSend = async () => {
-            console.log('Starting capture process...');
             try {
-                // Only capture if tab is active and tracking is enabled
-                if (document.visibilityState !== 'visible' || !settings.tracking_enabled) {
-                    console.log('Skipping capture: ', {
-                        visibilityState: document.visibilityState,
-                        trackingEnabled: settings.tracking_enabled
-                    });
+                // Only check if tracking is enabled
+                if (!settings.tracking_enabled) {
                     return;
                 }
 
@@ -222,14 +221,12 @@ const ProductivityTracker: React.FC<ProductivityTrackerProps> = ({
                 // Capture webcam if enabled and we have permission
                 if (settings.webcam_capture_enabled && hasWebcamPermission && webcamStreamRef.current) {
                     try {
-                        console.log('Using webcam stream');
                         const webcamTrack = webcamStreamRef.current.getVideoTracks()[0];
                         
                         // Create video element to capture frame
                         const video = document.createElement('video');
                         video.srcObject = new MediaStream([webcamTrack]);
                         await video.play();
-                        console.log('Webcam video element created and playing');
 
                         // Capture frame
                         const canvas = document.createElement('canvas');
@@ -237,12 +234,9 @@ const ProductivityTracker: React.FC<ProductivityTrackerProps> = ({
                         canvas.height = 480;
                         const ctx = canvas.getContext('2d');
                         ctx?.drawImage(video, 0, 0, canvas.width, canvas.height);
-                        console.log('Webcam frame captured to canvas');
                         
                         // Convert to base64 with compression
                         captures.webcam_image = canvas.toDataURL('image/jpeg', 0.5);
-                        const imageSize = Math.round(captures.webcam_image.length / 1024);
-                        console.log(`Webcam capture complete. Image size: ${imageSize}KB`);
 
                         // Clean up capture elements
                         video.remove();
@@ -316,7 +310,6 @@ const ProductivityTracker: React.FC<ProductivityTrackerProps> = ({
 
         // Only start interval if tracking is enabled
         if (settings.tracking_enabled) {
-            console.log('Starting capture interval');
             captureInterval = setInterval(captureAndSend, 10000); // Every 10 seconds
             // Do an initial capture
             captureAndSend();
