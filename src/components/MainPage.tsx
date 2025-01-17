@@ -163,6 +163,9 @@ const MainPage: React.FC<MainPageProps> = ({ setToken }) => {
                 }
 
                 switch (data.type) {
+                    case 'auth_success':
+                        console.log('Authentication successful');
+                        break;
                     case 'message_updated':
                         if (data.message.channel_id === selectedChannelId) {
                             setMessages(prev => prev.map(msg => 
@@ -172,8 +175,8 @@ const MainPage: React.FC<MainPageProps> = ({ setToken }) => {
                         break;
                     case 'new_message':
                         {
-                            const messageChannelStr = data.message.channel_id;
-                            const selectedChannelStr = currentChannelRef.current;
+                            const messageChannelStr = Number(data.message.channel_id);
+                            const selectedChannelStr = Number(currentChannelRef.current);
                             // Don't add messages for search results view
                             if (currentChannelRef.current !== SEARCH_CHANNEL_ID && 
                                 messageChannelStr === selectedChannelStr) {
