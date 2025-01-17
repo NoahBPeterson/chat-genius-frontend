@@ -192,6 +192,16 @@ const MainPage: React.FC<MainPageProps> = ({ setToken }) => {
                             }
                         }
                         break;
+                    case 'user_joined':
+                        // Add the new user to the users list if they're not already there
+                        setUsers(prev => {
+                            const userExists = prev.some(u => u.id === data.user.id);
+                            if (userExists) {
+                                return prev;
+                            }
+                            return [...prev, data.user];
+                        });
+                        break;
                     case 'presence_update':
                         setUsers(prevUsers => {
                             const updatedUsers = prevUsers.map(user => {
